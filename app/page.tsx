@@ -10,11 +10,6 @@ export default function Home() {
     queryFn: fetchScoreboard,
   });
 
-  // Log the data to check for betting lines
-  if (data?.events?.[0]) {
-    console.log('First game data:', JSON.stringify(data.events[0], null, 2));
-    console.log('Competition data:', JSON.stringify(data.events[0].competitions[0], null, 2));
-  }
 
   if (isLoading) {
     return (
