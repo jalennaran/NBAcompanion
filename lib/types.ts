@@ -19,6 +19,14 @@ export interface Competition {
   broadcasts: Broadcast[];
   situation?: GameSituation;
   odds?: Odds[];
+  venue?: {
+    id: string;
+    fullName: string;
+    address: {
+      city: string;
+      state: string;
+    };
+  };
 }
 
 export interface Competitor {
@@ -138,6 +146,19 @@ export interface Odds {
   };
   details: string;
   overUnder: number;
+  spread: number;
+  moneyline?: {
+    home?: {
+      close?: {
+        odds: string;
+      };
+    };
+    away?: {
+      close?: {
+        odds: string;
+      };
+    };
+  };
 }
 
 export interface Link {

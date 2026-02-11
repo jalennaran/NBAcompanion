@@ -10,6 +10,12 @@ export default function Home() {
     queryFn: fetchScoreboard,
   });
 
+  // Log the data to check for betting lines
+  if (data?.events?.[0]) {
+    console.log('First game data:', JSON.stringify(data.events[0], null, 2));
+    console.log('Competition data:', JSON.stringify(data.events[0].competitions[0], null, 2));
+  }
+
   if (isLoading) {
     return (
       <main className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-6 md:p-12">
@@ -70,6 +76,25 @@ export default function Home() {
               const isLive = game.status.type.state === 'in';
               const isFinal = game.status.type.completed;
               const lastPlay = competition.situation?.lastPlay;
+              const odds = competition.odds?.[0];
+              const hasNotStarted = !isLive && !isFinal;
+              
+              // Calculate spread coverage for finished games
+              let spreadCoverage = null;
+              if (isFinal && odds && homeTeam && awayTeam) {
+                const homeScore = parseInt(homeTeam.score || '0');
+                const awayScore = parseInt(awayTeam.score || '0');
+                const scoreDiff = homeScore - awayScore; // Positive if home wins
+                const spread = odds.spread; // Negative if home is favored
+                
+                if (scoreDiff + spread > 0) {
+                  spreadCoverage = { team: homeTeam.team.abbreviation, covered: true };
+                } else if (scoreDiff + spread < 0) {
+                  spreadCoverage = { team: awayTeam.team.abbreviation, covered: true };
+                } else {
+                  spreadCoverage = { team: 'push', covered: false };
+                }
+              }
               
               return (
                 <div
@@ -86,8 +111,19 @@ export default function Home() {
 
                   {/* Game status */}
                   <div className="mb-6 flex items-center justify-between">
-                    <div className="text-slate-400 text-sm font-medium">
-                      {game.status.type.shortDetail}
+                    <div className="flex flex-col gap-1">
+                      <div className="text-slate-400 text-sm font-medium">
+                        {game.status.type.shortDetail}
+                      </div>
+                      {competition.venue && (
+                        <div className="text-slate-500 text-xs flex items-center gap-1">
+                          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                          </svg>
+                          {competition.venue.fullName}
+                        </div>
+                      )}
                     </div>
                     {isFinal && (
                       <div className="text-emerald-400 text-sm font-bold uppercase tracking-wider bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/30">
@@ -160,7 +196,7 @@ export default function Home() {
                           </div>
                           <div>
                             <div className="text-white font-bold text-lg">
-                              {homeTeam.team.abbreviation}
+                              {homeTeam.team.abbreviation} 🏠
                             </div>
                             <div className="text-slate-400 text-sm">
                               {homeTeam.team.location}
@@ -181,6 +217,56 @@ export default function Home() {
                     )}
                     
                   </div>
+
+                  {/* Betting Lines - Only show for games that haven't started */}
+                  {hasNotStarted && odds && (
+                    <div className="mt-4 p-4 rounded-2xl bg-gradient-to-r from-green-900/20 to-emerald-900/20 backdrop-blur-sm border border-green-500/30">
+                      <div className="text-emerald-300 text-xs font-bold uppercase tracking-wider mb-3">
+                        Betting Lines ({odds.provider.name})
+                      </div>
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                          <div className="text-slate-400 text-xs mb-1">Spread</div>
+                          <div className="text-slate-100 font-semibold">{odds.details}</div>
+                        </div>
+                        <div>
+                          <div className="text-slate-400 text-xs mb-1">Over/Under</div>
+                          <div className="text-slate-100 font-semibold">{odds.overUnder}</div>
+                        </div>
+                        <div>
+                          <div className="text-slate-400 text-xs mb-1">Moneyline</div>
+                          <div className="text-slate-100 font-semibold">
+                            {homeTeam?.team.abbreviation} {odds.moneyline?.home?.close?.odds}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-slate-400 text-xs mb-1">&nbsp;</div>
+                          <div className="text-slate-100 font-semibold">
+                            {awayTeam?.team.abbreviation} {odds.moneyline?.away?.close?.odds}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Spread Coverage - Only show for finished games */}
+                  {isFinal && spreadCoverage && (
+                    <div className="mt-4 p-4 rounded-2xl bg-gradient-to-r from-amber-900/20 to-orange-900/20 backdrop-blur-sm border border-amber-500/30">
+                      <div className="text-amber-300 text-xs font-bold uppercase tracking-wider mb-2">
+                        Spread Result
+                      </div>
+                      {spreadCoverage.team === 'push' ? (
+                        <div className="text-slate-200 text-sm">
+                          <span className="font-semibold">Push</span> - Landed exactly on the spread
+                        </div>
+                      ) : (
+                        <div className="text-slate-200 text-sm">
+                          <span className="font-semibold text-amber-400">{spreadCoverage.team}</span> covered the spread
+                          {odds && <span className="text-slate-400 ml-2">({odds.details})</span>}
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   {/* Last Play - Only show if there's a play */}
                   {lastPlay?.text && (
