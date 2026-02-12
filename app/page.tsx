@@ -73,6 +73,12 @@ export default function Home() {
               const lastPlay = competition.situation?.lastPlay;
               const odds = competition.odds?.[0];
               const hasNotStarted = !isLive && !isFinal;
+              const primaryBroadcast =
+                competition.broadcasts?.find((broadcast) => broadcast.market === 'national') ||
+                competition.broadcasts?.find((broadcast) => broadcast.market === 'home');
+              const broadcastNames = primaryBroadcast?.names
+                ?.filter((name) => name && name !== 'NBA League Pass')
+                .join(', ');
               
               // Calculate spread coverage for finished games
               let spreadCoverage = null;
@@ -109,6 +115,7 @@ export default function Home() {
                     <div className="flex flex-col gap-1">
                       <div className="text-slate-400 text-sm font-medium">
                         {game.status.type.shortDetail}
+                        {broadcastNames ? ` - ${broadcastNames}` : ''}
                       </div>
                       {competition.venue && (
                         <div className="text-slate-500 text-xs flex items-center gap-1">
