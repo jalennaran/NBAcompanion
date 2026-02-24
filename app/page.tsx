@@ -3,6 +3,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { fetchScoreboard } from '@/lib/api';
 import Image from 'next/image';
+import Link from 'next/link';
 
 export default function Home() {
   const { data, isLoading, error } = useQuery({
@@ -98,9 +99,10 @@ export default function Home() {
               }
               
               return (
-                <div
+                <Link
+                  href={`/game/${game.id}`}
                   key={game.id}
-                  className="group relative bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-xl rounded-3xl p-6 border border-slate-700/50 hover:border-slate-600/50 transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl hover:shadow-purple-900/20"
+                  className="group relative bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-xl rounded-3xl p-6 border border-slate-700/50 hover:border-slate-600/50 transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl hover:shadow-purple-900/20 block cursor-pointer"
                 >
                   {/* Live indicator */}
                   {isLive && (
@@ -290,7 +292,7 @@ export default function Home() {
                       </div>
                     </div>
                   )}
-                </div>
+                </Link>
               );
             })
           )}

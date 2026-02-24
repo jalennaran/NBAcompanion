@@ -201,6 +201,8 @@ export interface PlayerStatistics {
   athletes: {
     athlete: Athlete;
     stats: string[];
+    starter: boolean;
+    didNotPlay?: boolean;
   }[];
 }
 

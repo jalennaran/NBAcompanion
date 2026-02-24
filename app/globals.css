@@ -22,4 +22,13 @@ body {
   .text-balance {
     text-wrap: balance;
   }
+
+  .scrollbar-subtle {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .scrollbar-subtle::-webkit-scrollbar {
+    display: none;
+  }
 }
