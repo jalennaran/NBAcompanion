@@ -58,3 +58,18 @@ export async function fetchGameSummary(eventId: string): Promise<GameSummary> {
 
   return response.json();
 }
+
+// Fetch season stats for a single athlete
+
+export async function fetchPlayerStats(athleteId: string): Promise<any> {
+  const response = await fetch(
+    `https://site.web.api.espn.com/apis/common/v3/sports/basketball/nba/athletes/${athleteId}/overview`,
+    { cache: 'no-store' }
+  );
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch stats for athlete ${athleteId}`);
+  }
+
+  return response.json();
+}

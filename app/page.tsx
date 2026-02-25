@@ -4,6 +4,8 @@ import { useQuery } from '@tanstack/react-query';
 import { fetchScoreboard } from '@/lib/api';
 import Image from 'next/image';
 import Link from 'next/link';
+import TopPerformers from '@/components/TopPerformers';
+import PreGameLeaders from '@/components/PreGameLeaders';
 
 export default function Home() {
   const { data, isLoading, error } = useQuery({
@@ -221,6 +223,16 @@ export default function Home() {
                     )}
                     
                   </div>
+
+                  {/* Top Performers - Only show for live or completed games */}
+                  {(isLive || isFinal) && (
+                    <TopPerformers gameId={game.id} />
+                  )}
+
+                  {/* Season Leaders - Only show for games that haven't started */}
+                  {hasNotStarted && (
+                    <PreGameLeaders homeTeam={homeTeam} awayTeam={awayTeam} />
+                  )}
 
                   {/* Betting Lines - Only show for games that haven't started */}
                   {hasNotStarted && odds && (
