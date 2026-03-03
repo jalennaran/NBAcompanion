@@ -6,6 +6,8 @@ import { useParams } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
 import type { Competitor, Play, TeamBoxScore } from '@/lib/types';
+import CourtStrip from '@/components/game/CourtStrip';
+import type { OnCourtPlayer } from '@/components/game/CourtStrip';
 
 export default function GamePage() {
   const params = useParams();
@@ -81,6 +83,56 @@ export default function GamePage() {
   // Plays sorted most recent first
   const plays = [...(data.plays ?? [])].reverse();
 
+  // Build athlete lookup by ID (from both teams' boxscore data)
+  const athleteById: Record<string, OnCourtPlayer> = {};
+  [awayBoxScore, homeBoxScore].forEach((bs) => {
+    if (!bs) return;
+    for (const a of bs.statistics?.[0]?.athletes ?? []) {
+      athleteById[a.athlete.id] = {
+        name: a.athlete.shortName || a.athlete.displayName,
+        jersey: a.athlete.jersey,
+        position: a.athlete.position?.abbreviation,
+        headshotUrl: typeof a.athlete.headshot === 'string'
+          ? a.athlete.headshot
+          : (a.athlete.headshot as any)?.href,
+      };
+    }
+  });
+
+  // Derive current on-court lineups by replaying substitutions
+  const deriveOnCourt = (teamId: string, boxScore?: TeamBoxScore): OnCourtPlayer[] => {
+    if (!boxScore) return [];
+    // Start with starters
+    const starterIds = new Set(
+      (boxScore.statistics?.[0]?.athletes ?? [])
+        .filter((a) => a.starter)
+        .map((a) => a.athlete.id)
+    );
+    const onCourtIds = new Set(starterIds);
+
+    // Process substitution plays in chronological order
+    const allPlays = data.plays ?? [];
+    for (const play of allPlays) {
+      if (
+        play.type?.text === 'Substitution' &&
+        (play as any).team?.id === teamId &&
+        (play as any).participants?.length === 2
+      ) {
+        const enteringId = (play as any).participants[0]?.athlete?.id;
+        const leavingId = (play as any).participants[1]?.athlete?.id;
+        if (enteringId) onCourtIds.add(String(enteringId));
+        if (leavingId) onCourtIds.delete(String(leavingId));
+      }
+    }
+
+    return Array.from(onCourtIds)
+      .map((id) => athleteById[id])
+      .filter(Boolean);
+  };
+
+  const awayOnCourt = deriveOnCourt(awayCompetitor?.team?.id ?? '', awayBoxScore);
+  const homeOnCourt = deriveOnCourt(homeCompetitor?.team?.id ?? '', homeBoxScore);
+
   return (
     <main className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-4 md:p-8">
       <div className="max-w-[1600px] mx-auto">
@@ -93,6 +145,18 @@ export default function GamePage() {
           gameStatus={gameStatus}
           isLive={isLive}
           isFinal={isFinal}
+        />
+
+        {/* Court visualization strip */}
+        <CourtStrip
+          homeTeamName={homeCompetitor?.team?.displayName ?? ''}
+          homeTeamLogoUrl={homeCompetitor?.team?.logo ?? ''}
+          awayTeamName={awayCompetitor?.team?.displayName ?? ''}
+          awayTeamColor={awayCompetitor?.team?.color}
+          homeTeamColor={homeCompetitor?.team?.color}
+          awayOnCourt={awayOnCourt}
+          homeOnCourt={homeOnCourt}
+          className="mt-6"
         />
 
         {/* Three-column layout: Away Box | Play-by-Play | Home Box */}
