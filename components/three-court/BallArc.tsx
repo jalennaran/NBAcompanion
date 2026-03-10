@@ -24,6 +24,10 @@ export type BallArcProps = {
   trailSegments?: number;
   easing?: BallArcEasing;
   showTrail?: boolean;
+  /** If true the shot misses: ball deflects off the rim and drops */
+  missed?: boolean;
+  /** Signed X-axis deflection in feet after hitting the rim (default ±2.5) */
+  missDeflect?: number;
   onComplete?: () => void;
 };
 
@@ -51,6 +55,8 @@ export function BallArc({
   trailSegments = 48,
   easing = 'linear',
   showTrail = true,
+  missed = false,
+  missDeflect = 2.5,
   onComplete,
 }: BallArcProps) {
   const sY = startYProp ?? baseY ?? 0.4;
@@ -96,7 +102,7 @@ export function BallArc({
   useEffect(() => {
     startedAtMsRef.current = null;
     completeRef.current = false;
-  }, [apex, durationMs, endUV, startDelayMs, startUV]);
+  }, [apex, durationMs, endUV, missed, startDelayMs, startUV]);
 
   useFrame((state) => {
     const nowMs = state.clock.elapsedTime * 1000;
@@ -110,6 +116,55 @@ export function BallArc({
     if (elapsedMs < 0) {
       if (ballRef.current) {
         ballRef.current.position.set(start.x, sY, start.z);
+      }
+      return;
+    }
+
+    if (missed) {
+      /*
+       * Three-phase miss animation:
+       *   Phase 1 (0 → 55 %): standard parabolic arc, shooter → rim
+       *   Phase 2 (55 → 80 %): ball rattles off the rim — sharp upward pop
+       *                        with lateral (X + Z) scatter
+       *   Phase 3 (80 → 100 %): ball drops away from the rim to the floor
+       */
+      const phase1End = durationMs * 0.55;
+      const phase2End = durationMs * 0.80;
+      const phase2Dur = durationMs * 0.25;
+      const phase3Dur = durationMs * 0.20;
+
+      // Lateral scatter: X from prop, Z is ½ of that in the same direction
+      const bx = end.x + missDeflect;
+      const bz = end.z + missDeflect * 0.5;
+
+      if (elapsedMs <= phase1End) {
+        /* ── Phase 1: arc from shooter to the rim ── */
+        const rawT = THREE.MathUtils.clamp(elapsedMs / phase1End, 0, 1);
+        const t = easeT(rawT, easing);
+        const x = THREE.MathUtils.lerp(start.x, end.x, t);
+        const z = THREE.MathUtils.lerp(start.z, end.z, t);
+        const y = THREE.MathUtils.lerp(sY, eY, t) + 4 * apex * t * (1 - t);
+        if (ballRef.current) ballRef.current.position.set(x, y, z);
+      } else if (elapsedMs <= phase2End) {
+        /* ── Phase 2: rim rattle — upward pop + lateral scatter ── */
+        const t2 = THREE.MathUtils.clamp((elapsedMs - phase1End) / phase2Dur, 0, 1);
+        const rimBounceApex = 2.5;
+        const x = THREE.MathUtils.lerp(end.x, bx, t2);
+        const z = THREE.MathUtils.lerp(end.z, bz, t2);
+        // Starts at rim height, pops up, then back down to slightly above rim
+        const y = eY + 4 * rimBounceApex * t2 * (1 - t2);
+        if (ballRef.current) ballRef.current.position.set(x, y, z);
+      } else {
+        /* ── Phase 3: ball drops from scatter position to the floor ── */
+        const t3 = THREE.MathUtils.clamp((elapsedMs - phase2End) / phase3Dur, 0, 1);
+        // Accelerating drop (gravity-like)
+        const y = THREE.MathUtils.lerp(eY, 0.4, t3 * t3);
+        if (ballRef.current) ballRef.current.position.set(bx, y, bz);
+
+        if (t3 >= 1 && !completeRef.current) {
+          completeRef.current = true;
+          onComplete?.();
+        }
       }
       return;
     }

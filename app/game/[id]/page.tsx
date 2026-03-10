@@ -18,6 +18,9 @@ export default function GamePage() {
     queryKey: ['gameSummary', gameId],
     queryFn: () => fetchGameSummary(gameId),
     enabled: !!gameId,
+    // Poll play-by-play more frequently so we catch every shot
+    refetchInterval: 2 * 1000,
+    staleTime: 1 * 1000,
   });
 
   if (isLoading) {
@@ -83,6 +86,11 @@ export default function GamePage() {
 
   // Plays sorted most recent first
   const plays = [...(data.plays ?? [])].reverse();
+
+  // Most recent shot play (made or missed, including free throws) for the court banner
+  const lastShotPlay = [...(data.plays ?? [])].reverse().find(
+    (p) => p.shootingPlay || /free.?throw/i.test(p.type?.text ?? '')
+  );
 
   // Build athlete lookup by ID (from both teams' boxscore data)
   const athleteById: Record<string, OnCourtPlayer> = {};
@@ -160,14 +168,71 @@ export default function GamePage() {
           className="mt-6"
         />
 
-        {/* 3D court view (UV->world mapped); plug live shot data into markers/arcs props */}
+        {/* 3D court view — live shot markers and arc animations driven by play-by-play */}
         <div className="mt-6 overflow-hidden rounded-3xl border border-slate-700/50 bg-slate-900/40 backdrop-blur-sm">
           <ThreeCourtScene
             height={520}
             centerLogoUrl={homeCompetitor?.team?.logo}
             awayLogoUrl={awayCompetitor?.team?.logo}
             homeLogoUrl={homeCompetitor?.team?.logo}
+            plays={data.plays}
+            homeTeamId={homeCompetitor?.team?.id}
+            homeColor={homeCompetitor?.team?.color}
+            awayColor={awayCompetitor?.team?.color}
           />
+          {/* Latest shot banner — shown under the 3D canvas */}
+          {lastShotPlay && (() => {
+            const made = lastShotPlay.scoringPlay && (lastShotPlay.scoreValue ?? 0) >= 1;
+            const isFT = /free.?throw/i.test(lastShotPlay.type?.text ?? '');
+            const periodLabel = lastShotPlay.period.number <= 4
+              ? `Q${lastShotPlay.period.number}`
+              : `OT${lastShotPlay.period.number - 4}`;
+            return (
+              <div
+                className={`flex items-center gap-3 px-5 py-3 border-t ${
+                  made
+                    ? 'border-emerald-700/40 bg-emerald-950/30'
+                    : 'border-red-800/40 bg-red-950/25'
+                }`}
+              >
+                {/* Result icon */}
+                <span
+                  className={`flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-sm font-black ${
+                    made ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'
+                  }`}
+                >
+                  {made ? '✓' : '✗'}
+                </span>
+
+                {/* Play description */}
+                <div className="flex-1 min-w-0">
+                  <p className={`text-sm font-medium truncate ${
+                    made ? 'text-emerald-200' : 'text-red-200'
+                  }`}>
+                    {lastShotPlay.text}
+                  </p>
+                </div>
+
+                {/* Period + score */}
+                <div className="flex-shrink-0 text-right">
+                  <span className="text-xs text-slate-500 font-mono block">
+                    {periodLabel} {lastShotPlay.clock.displayValue}
+                  </span>
+                  {made && (
+                    <span className="text-xs font-bold font-mono text-slate-300 block mt-0.5">
+                      <span style={{ color: awayCompetitor?.team?.color ? `#${awayCompetitor.team.color}` : undefined }}>
+                        {awayCompetitor?.team?.abbreviation} {lastShotPlay.awayScore}
+                      </span>
+                      <span className="text-slate-600 mx-1">–</span>
+                      <span style={{ color: homeCompetitor?.team?.color ? `#${homeCompetitor.team.color}` : undefined }}>
+                        {lastShotPlay.homeScore} {homeCompetitor?.team?.abbreviation}
+                      </span>
+                    </span>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
         </div>
 
         {/* Three-column layout: Away Box | Play-by-Play | Home Box */}

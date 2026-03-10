@@ -223,11 +223,20 @@ export interface Play {
     displayValue: string;
   };
   scoringPlay: boolean;
+  scoreValue?: number;
   shootingPlay: boolean;
   coordinate?: {
     x: number;
     y: number;
   };
+  team?: {
+    id: string;
+  };
+  participants?: {
+    athlete: {
+      id: string;
+    };
+  }[];
 }
 
 export interface WinProbability {
