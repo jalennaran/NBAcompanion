@@ -8,6 +8,7 @@ import Link from 'next/link';
 import type { Competitor, Play, TeamBoxScore } from '@/lib/types';
 import CourtStrip from '@/components/game/CourtStrip';
 import type { OnCourtPlayer } from '@/components/game/CourtStrip';
+import { ThreeCourtScene } from '@/components/three-court/ThreeCourtScene';
 
 export default function GamePage() {
   const params = useParams();
@@ -158,6 +159,16 @@ export default function GamePage() {
           homeOnCourt={homeOnCourt}
           className="mt-6"
         />
+
+        {/* 3D court view (UV->world mapped); plug live shot data into markers/arcs props */}
+        <div className="mt-6 overflow-hidden rounded-3xl border border-slate-700/50 bg-slate-900/40 backdrop-blur-sm">
+          <ThreeCourtScene
+            height={520}
+            centerLogoUrl={homeCompetitor?.team?.logo}
+            awayLogoUrl={awayCompetitor?.team?.logo}
+            homeLogoUrl={homeCompetitor?.team?.logo}
+          />
+        </div>
 
         {/* Three-column layout: Away Box | Play-by-Play | Home Box */}
         <div className="grid grid-cols-1 xl:grid-cols-[1fr_minmax(360px,480px)_1fr] gap-4 mt-6">
