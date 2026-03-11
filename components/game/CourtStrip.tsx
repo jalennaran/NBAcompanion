@@ -18,6 +18,7 @@ type CourtStripProps = {
   homeTeamColor?: string;
   awayOnCourt?: OnCourtPlayer[];
   homeOnCourt?: OnCourtPlayer[];
+  panelLabel?: string;
   className?: string;
   height?: number;
   showDemo?: boolean;
@@ -31,6 +32,7 @@ export default function CourtStrip({
   homeTeamColor,
   awayOnCourt = [],
   homeOnCourt = [],
+  panelLabel,
   className,
   height = 440,
   showDemo = false,
@@ -62,6 +64,7 @@ export default function CourtStrip({
             teamColor={awayTeamColor}
             players={awayOnCourt}
             side="left"
+            panelLabel={panelLabel}
           />
         )}
 
@@ -216,6 +219,7 @@ export default function CourtStrip({
             teamColor={homeTeamColor}
             players={homeOnCourt}
             side="right"
+            panelLabel={panelLabel}
           />
         )}
       </div>
@@ -230,11 +234,13 @@ function OnCourtPanel({
   teamColor,
   players,
   side,
+  panelLabel,
 }: {
   teamName: string;
   teamColor?: string;
   players: OnCourtPlayer[];
   side: 'left' | 'right';
+  panelLabel?: string;
 }) {
   const accentColor = teamColor ? `#${teamColor}` : '#6366f1';
 
@@ -246,7 +252,7 @@ function OnCourtPanel({
         style={{ borderBottomColor: `${accentColor}44` }}
       >
         <div className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">
-          {side === 'left' ? 'Away' : 'Home'}
+          {panelLabel ?? (side === 'left' ? 'Away' : 'Home')}
         </div>
         <div className="text-xs font-bold text-slate-200 mt-0.5 truncate">{teamName}</div>
       </div>

@@ -189,6 +189,7 @@ export interface GameSummary {
   leaders: Leader[];
   gameInfo: GameInfo;
   odds: Odds[];
+  lastFiveGames?: any[];
 }
 
 export interface TeamBoxScore {

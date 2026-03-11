@@ -73,3 +73,18 @@ export async function fetchPlayerStats(athleteId: string): Promise<any> {
 
   return response.json();
 }
+
+// Fetch team roster with season averages
+
+export async function fetchTeamRoster(teamId: string): Promise<any> {
+  const response = await fetch(
+    `https://site.web.api.espn.com/apis/common/v3/sports/basketball/nba/teams/${teamId}/roster`,
+    { cache: 'no-store' }
+  );
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch roster for team ${teamId}`);
+  }
+
+  return response.json();
+}

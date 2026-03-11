@@ -1,7 +1,7 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { fetchGameSummary } from '@/lib/api';
+import { fetchGameSummary, fetchTeamRoster } from '@/lib/api';
 import { useParams } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -21,6 +21,70 @@ export default function GamePage() {
     // Poll play-by-play more frequently so we catch every shot
     refetchInterval: 2 * 1000,
     staleTime: 1 * 1000,
+  });
+
+  // Derive pregame state and team IDs before hooks (to keep hook order stable)
+  const competition = data?.header?.competitions?.[0];
+  const gameStatus = competition?.status;
+  const isPregame = gameStatus?.type?.state === 'pre';
+  const isLive = gameStatus?.type?.state === 'in';
+  const isFinal = gameStatus?.type?.completed;
+
+  // Build a logo lookup from boxscore.teams (header data often omits logos)
+  const logoById: Record<string, string> = {};
+  (data?.boxscore?.teams ?? []).forEach((t: any) => {
+    if (t.team?.id && t.team?.logo) logoById[t.team.id] = t.team.logo;
+  });
+
+  // Enrich header competitors with logos from boxscore when missing
+  const enrichLogo = (c: Competitor | undefined): Competitor | undefined => {
+    if (!c) return c;
+    if (!c.team.logo && logoById[c.team.id]) {
+      return { ...c, team: { ...c.team, logo: logoById[c.team.id] } };
+    }
+    return c;
+  };
+
+  const homeCompetitor = enrichLogo(
+    competition?.competitors?.find((c: Competitor) => c.homeAway === 'home')
+  );
+  const awayCompetitor = enrichLogo(
+    competition?.competitors?.find((c: Competitor) => c.homeAway === 'away')
+  );
+
+  // --- Pregame: fetch last-game starters + rosters with season averages ---
+  const lastFiveGames = data?.lastFiveGames ?? [];
+  const awayLastGameId = lastFiveGames.find(
+    (t: any) => t.team?.id === awayCompetitor?.team?.id
+  )?.events?.[0]?.id as string | undefined;
+  const homeLastGameId = lastFiveGames.find(
+    (t: any) => t.team?.id === homeCompetitor?.team?.id
+  )?.events?.[0]?.id as string | undefined;
+
+  const { data: awayLastGame } = useQuery({
+    queryKey: ['lastGame', awayLastGameId],
+    queryFn: () => fetchGameSummary(awayLastGameId!),
+    enabled: isPregame && !!awayLastGameId,
+    staleTime: Infinity,
+  });
+  const { data: homeLastGame } = useQuery({
+    queryKey: ['lastGame', homeLastGameId],
+    queryFn: () => fetchGameSummary(homeLastGameId!),
+    enabled: isPregame && !!homeLastGameId,
+    staleTime: Infinity,
+  });
+
+  const { data: awayRoster } = useQuery({
+    queryKey: ['roster', awayCompetitor?.team?.id],
+    queryFn: () => fetchTeamRoster(awayCompetitor!.team.id),
+    enabled: isPregame && !!awayCompetitor?.team?.id,
+    staleTime: Infinity,
+  });
+  const { data: homeRoster } = useQuery({
+    queryKey: ['roster', homeCompetitor?.team?.id],
+    queryFn: () => fetchTeamRoster(homeCompetitor!.team.id),
+    enabled: isPregame && !!homeCompetitor?.team?.id,
+    staleTime: Infinity,
   });
 
   if (isLoading) {
@@ -48,33 +112,6 @@ export default function GamePage() {
       </main>
     );
   }
-
-  const competition = data.header?.competitions?.[0];
-  const gameStatus = competition?.status;
-  const isLive = gameStatus?.type?.state === 'in';
-  const isFinal = gameStatus?.type?.completed;
-
-  // Build a logo lookup from boxscore.teams (header data often omits logos)
-  const logoById: Record<string, string> = {};
-  (data.boxscore?.teams ?? []).forEach((t: any) => {
-    if (t.team?.id && t.team?.logo) logoById[t.team.id] = t.team.logo;
-  });
-
-  // Enrich header competitors with logos from boxscore when missing
-  const enrichLogo = (c: Competitor | undefined): Competitor | undefined => {
-    if (!c) return c;
-    if (!c.team.logo && logoById[c.team.id]) {
-      return { ...c, team: { ...c.team, logo: logoById[c.team.id] } };
-    }
-    return c;
-  };
-
-  const homeCompetitor = enrichLogo(
-    competition?.competitors?.find((c: Competitor) => c.homeAway === 'home')
-  );
-  const awayCompetitor = enrichLogo(
-    competition?.competitors?.find((c: Competitor) => c.homeAway === 'away')
-  );
 
   // Box score data
   const awayBoxScore = data.boxscore?.players?.find(
@@ -139,8 +176,35 @@ export default function GamePage() {
       .filter(Boolean);
   };
 
-  const awayOnCourt = deriveOnCourt(awayCompetitor?.team?.id ?? '', awayBoxScore);
-  const homeOnCourt = deriveOnCourt(homeCompetitor?.team?.id ?? '', homeBoxScore);
+  // --- Derive lineups: live on-court OR pregame projected starters ---
+  const extractProjectedStarters = (
+    lastGameData: any,
+    teamId: string
+  ): OnCourtPlayer[] => {
+    if (!lastGameData) return [];
+    const teamBox = (lastGameData.boxscore?.players ?? []).find(
+      (p: any) => p.team?.id === teamId
+    );
+    if (!teamBox) return [];
+    const athletes = teamBox.statistics?.[0]?.athletes ?? [];
+    return athletes
+      .filter((a: any) => a.starter)
+      .map((a: any) => ({
+        name: a.athlete.shortName || a.athlete.displayName,
+        jersey: a.athlete.jersey,
+        position: a.athlete.position?.abbreviation,
+        headshotUrl: typeof a.athlete.headshot === 'string'
+          ? a.athlete.headshot
+          : (a.athlete.headshot as any)?.href,
+      }));
+  };
+
+  const awayOnCourt = isPregame
+    ? extractProjectedStarters(awayLastGame, awayCompetitor?.team?.id ?? '')
+    : deriveOnCourt(awayCompetitor?.team?.id ?? '', awayBoxScore);
+  const homeOnCourt = isPregame
+    ? extractProjectedStarters(homeLastGame, homeCompetitor?.team?.id ?? '')
+    : deriveOnCourt(homeCompetitor?.team?.id ?? '', homeBoxScore);
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-4 md:p-8">
@@ -165,6 +229,7 @@ export default function GamePage() {
           homeTeamColor={homeCompetitor?.team?.color}
           awayOnCourt={awayOnCourt}
           homeOnCourt={homeOnCourt}
+          panelLabel={isPregame ? 'Projected Starters' : undefined}
           className="mt-6"
         />
 
@@ -239,7 +304,11 @@ export default function GamePage() {
         <div className="grid grid-cols-1 xl:grid-cols-[1fr_minmax(360px,480px)_1fr] gap-4 mt-6">
           {/* Away team box score */}
           <div className="order-2 xl:order-1">
-            <BoxScoreTable teamBoxScore={awayBoxScore} competitor={awayCompetitor} label="away" />
+            {isPregame ? (
+              <PregameRosterTable roster={awayRoster} competitor={awayCompetitor} label="away" />
+            ) : (
+              <BoxScoreTable teamBoxScore={awayBoxScore} competitor={awayCompetitor} label="away" />
+            )}
           </div>
 
           {/* Play-by-play feed */}
@@ -255,7 +324,11 @@ export default function GamePage() {
 
           {/* Home team box score */}
           <div className="order-3">
-            <BoxScoreTable teamBoxScore={homeBoxScore} competitor={homeCompetitor} label="home" />
+            {isPregame ? (
+              <PregameRosterTable roster={homeRoster} competitor={homeCompetitor} label="home" />
+            ) : (
+              <BoxScoreTable teamBoxScore={homeBoxScore} competitor={homeCompetitor} label="home" />
+            )}
           </div>
         </div>
       </div>
@@ -692,5 +765,136 @@ function PlayerRow({
         ))
       )}
     </tr>
+  );
+}
+
+/* ─── Pregame Roster Table (season averages) ─────────────────────────── */
+
+function PregameRosterTable({
+  roster,
+  competitor,
+  label,
+}: {
+  roster: any;
+  competitor?: Competitor;
+  label: 'home' | 'away';
+}) {
+  if (!competitor) {
+    return (
+      <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-xl rounded-3xl border border-slate-700/50 p-6">
+        <div className="text-slate-500 text-sm text-center">Roster not available</div>
+      </div>
+    );
+  }
+
+  // Extract all athletes from positionGroups
+  const athletes: any[] = (roster?.positionGroups ?? []).flatMap(
+    (g: any) => g.athletes ?? []
+  );
+
+  if (athletes.length === 0) {
+    return (
+      <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-xl rounded-3xl border border-slate-700/50 p-6">
+        <div className="text-slate-500 text-sm text-center">Roster not available</div>
+      </div>
+    );
+  }
+
+  // Stat columns we want to display
+  const statColumns = ['PTS', 'REB', 'AST', 'FG%'] as const;
+
+  // Extract stat map for a player
+  const getStatMap = (athlete: any): Record<string, string> => {
+    const cats = athlete?.statistics?.splits?.categories ?? [];
+    const map: Record<string, string> = {};
+    for (const cat of cats) {
+      for (const s of cat.stats ?? []) {
+        map[s.abbreviation] = s.displayValue;
+      }
+    }
+    return map;
+  };
+
+  // Sort by PTS descending
+  const sorted = [...athletes].sort((a, b) => {
+    const aPts = parseFloat(getStatMap(a)['PTS'] ?? '0');
+    const bPts = parseFloat(getStatMap(b)['PTS'] ?? '0');
+    return bPts - aPts;
+  });
+
+  return (
+    <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-xl rounded-3xl border border-slate-700/50 overflow-hidden">
+      {/* Team header */}
+      <div className="flex items-center gap-3 px-5 py-4 border-b border-slate-700/50">
+        <div className="relative w-8 h-8 flex-shrink-0 flex items-center justify-center">
+          {competitor.team.logo ? (
+            <Image
+              src={competitor.team.logo}
+              alt={competitor.team.abbreviation}
+              width={32}
+              height={32}
+              className="object-contain"
+            />
+          ) : (
+            <span className="text-xs font-bold text-slate-400">{competitor.team.abbreviation}</span>
+          )}
+        </div>
+        <div>
+          <h2 className="text-white font-bold text-sm uppercase tracking-wider">
+            {competitor.team.displayName}
+          </h2>
+          <span className="text-slate-500 text-xs">
+            {label === 'home' ? 'Home' : 'Away'} — Season Averages
+          </span>
+        </div>
+      </div>
+
+      {/* Stats table */}
+      <div className="overflow-x-auto">
+        <table className="w-full text-xs">
+          <thead>
+            <tr className="text-slate-500 uppercase tracking-wider border-b border-slate-700/50">
+              <th className="text-left py-2 px-3 sticky left-0 bg-slate-900/90 backdrop-blur-sm min-w-[120px]">Player</th>
+              {statColumns.map((col) => (
+                <th key={col} className="text-center py-2 px-2 whitespace-nowrap">{col}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {sorted.map((a) => {
+              const statMap = getStatMap(a);
+              const pos = a.position?.abbreviation ?? '';
+              return (
+                <tr key={a.id} className="border-t border-slate-700/20 hover:bg-slate-700/20 transition-colors">
+                  <td className="py-2 px-3 sticky left-0 bg-slate-900/80 backdrop-blur-sm">
+                    <div className="flex items-center gap-2">
+                      {a.jersey && (
+                        <span className="text-slate-600 text-[10px] w-5 text-right">#{a.jersey}</span>
+                      )}
+                      <span className="text-slate-200 whitespace-nowrap font-medium">
+                        {a.shortName || a.displayName}
+                      </span>
+                      {pos && (
+                        <span className="text-slate-600 text-[10px]">{pos}</span>
+                      )}
+                    </div>
+                  </td>
+                  {statColumns.map((col) => (
+                    <td
+                      key={col}
+                      className={`text-center py-2 px-2 whitespace-nowrap ${
+                        col === 'PTS' ? 'text-white font-bold' : 'text-slate-400'
+                      }`}
+                    >
+                      {statMap[col] ?? '-'}
+                    </td>
+                  ))}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
   );
 }
