@@ -32,9 +32,13 @@ export async function getGameSummary(eventId: string): Promise<GameSummary> {
 }
 
 // Fetch scoreboard for client-side with no caching
+// Optional date param in YYYYMMDD format
 
-export async function fetchScoreboard(): Promise<ScoreboardResponse> {
-  const response = await fetch(`${ESPN_API_BASE}/scoreboard`, {
+export async function fetchScoreboard(date?: string): Promise<ScoreboardResponse> {
+  const url = date
+    ? `${ESPN_API_BASE}/scoreboard?dates=${date}`
+    : `${ESPN_API_BASE}/scoreboard`;
+  const response = await fetch(url, {
     cache: 'no-store',
   });
 

@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { fetchScoreboard } from '@/lib/api';
 import Image from 'next/image';
@@ -7,11 +8,34 @@ import Link from 'next/link';
 import TopPerformers from '@/components/TopPerformers';
 import PreGameLeaders from '@/components/PreGameLeaders';
 
+function formatDateParam(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}${m}${d}`;
+}
+
+function isSameDay(a: Date, b: Date): boolean {
+  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+}
+
 export default function Home() {
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const isToday = isSameDay(selectedDate, new Date());
+  const dateParam = isToday ? undefined : formatDateParam(selectedDate);
+
   const { data, isLoading, error } = useQuery({
-    queryKey: ['scoreboard'],
-    queryFn: fetchScoreboard,
+    queryKey: ['scoreboard', dateParam ?? 'today'],
+    queryFn: () => fetchScoreboard(dateParam),
   });
+
+  const shiftDate = (days: number) => {
+    setSelectedDate(prev => {
+      const next = new Date(prev);
+      next.setDate(next.getDate() + days);
+      return next;
+    });
+  };
 
 
   if (isLoading) {
@@ -49,16 +73,44 @@ export default function Home() {
       <div className="max-w-7xl mx-auto">
         <div className="mb-12">
           <h1 className="text-5xl md:text-6xl font-black mb-3 bg-gradient-to-r from-orange-400 via-red-500 to-purple-600 bg-clip-text text-transparent">
-            NBA LIVE
+            NBA {isToday ? 'LIVE' : 'SCORES'}
           </h1>
-          <p className="text-slate-400 text-lg">
-            {new Date().toLocaleDateString('en-US', { 
-              weekday: 'long', 
-              year: 'numeric', 
-              month: 'long', 
-              day: 'numeric' 
-            })}
-          </p>
+          <div className="flex items-center gap-4 mt-4">
+            <button
+              onClick={() => shiftDate(-1)}
+              className="p-2 rounded-xl bg-slate-800/60 border border-slate-700/50 hover:border-slate-500/50 hover:bg-slate-700/60 transition-all text-slate-300 hover:text-white"
+              aria-label="Previous day"
+            >
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+            <p className="text-slate-300 text-lg font-medium select-none">
+              {selectedDate.toLocaleDateString('en-US', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+              })}
+            </p>
+            <button
+              onClick={() => shiftDate(1)}
+              className="p-2 rounded-xl bg-slate-800/60 border border-slate-700/50 hover:border-slate-500/50 hover:bg-slate-700/60 transition-all text-slate-300 hover:text-white"
+              aria-label="Next day"
+            >
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+            {!isToday && (
+              <button
+                onClick={() => setSelectedDate(new Date())}
+                className="ml-2 px-3 py-1.5 rounded-xl bg-purple-600/30 border border-purple-500/40 hover:bg-purple-600/50 transition-all text-purple-300 text-sm font-semibold"
+              >
+                Today
+              </button>
+            )}
+          </div>
         </div>
         
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

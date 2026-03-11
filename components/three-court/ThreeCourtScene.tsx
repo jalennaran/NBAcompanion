@@ -425,9 +425,9 @@ function isFreeThrow(p: Play): boolean {
 
 /**
  * Synthetic coordinate for any free throw: horizontally centred (x = 25),
- * 9.75 ft from the hoop (= 15-ft free-throw line − 5.25-ft hoop offset).
+ * 13.75 ft from the hoop (= 19-ft lane depth − 5.25-ft hoop offset).
  */
-const FT_COORD = { x: COURT_W / 2, y: 9.75 } as const;
+const FT_COORD = { x: COURT_W / 2, y: 13.75 } as const;
 
 /**
  * Fallback coordinate for shooting plays with no ESPN coordinate
@@ -461,9 +461,11 @@ function useShotData(
     return shotPlays.map((p) => {
       const isHome = p.team?.id === homeTeamId;
       const isFT = isFreeThrow(p);
-      const coord = isValidESPNCoord(p.coordinate)
-        ? p.coordinate!
-        : isFT ? FT_COORD : AT_BASKET_COORD;
+      const coord = isFT
+        ? FT_COORD
+        : isValidESPNCoord(p.coordinate)
+          ? p.coordinate!
+          : AT_BASKET_COORD;
       const [u, v] = espnToUV(coord.x, coord.y, isHome);
       const made = p.scoringPlay && (p.scoreValue ?? 0) >= 1;
       const baseColor = isHome ? `#${homeColor}` : `#${awayColor}`;
@@ -501,7 +503,7 @@ function useShotData(
         endY: RIM_HEIGHT,
         easing: 'gravity' as const,
         color: missed ? '#cc3300' : '#f06000',
-        trailColor: missed ? '#ff6644' : '#ffffff',
+        trailColor: missed ? '#ff2222' : '#22cc44',
         missed,
         missDeflect: missed ? stableDeflect(p.id) : undefined,
         enabled: true,
