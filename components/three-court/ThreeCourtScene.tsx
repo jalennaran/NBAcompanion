@@ -258,28 +258,7 @@ function drawCourtLines(ctx: CanvasRenderingContext2D, widthPx: number, heightPx
     false,
   );
   ctx.stroke();
-
-  /* ── Backboard indicators on floor ── */
-  ctx.lineWidth = Math.max(3, widthPx * 0.004);
-  ctx.strokeStyle = white;
-  ctx.beginPath();
-  ctx.moveTo(toCanvasX(-3, widthPx), toCanvasY(bbFaceNearZ, heightPx));
-  ctx.lineTo(toCanvasX(3, widthPx), toCanvasY(bbFaceNearZ, heightPx));
-  ctx.moveTo(toCanvasX(-3, widthPx), toCanvasY(bbFaceFarZ, heightPx));
-  ctx.lineTo(toCanvasX(3, widthPx), toCanvasY(bbFaceFarZ, heightPx));
-  ctx.stroke();
-
-  /* ── Hoop circles on floor ── */
-  ctx.strokeStyle = '#ff6600';
-  ctx.lineWidth = Math.max(2, widthPx * 0.003);
-  const hoopR = 0.75 * pxPerFoot;
-  ctx.beginPath();
-  ctx.arc(toCanvasX(0, widthPx), toCanvasY(hoopNearZ, heightPx), hoopR, 0, Math.PI * 2);
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.arc(toCanvasX(0, widthPx), toCanvasY(hoopFarZ, heightPx), hoopR, 0, Math.PI * 2);
-  ctx.stroke();
-}
+} 
 
 type CourtRenderOptions = {
   centerLogoUrl?: string;
@@ -540,25 +519,25 @@ const DEMO_ARCS: ArcShot[] = [
     endUV: [0.5, NEAR_BASKET_V],
     durationMs: 1100,
     startDelayMs: 0,
-    apex: 12,
+    apex: 7,
     startY: 7,
     endY: RIM_HEIGHT,
     easing: 'gravity',
     color: '#f06000',
-    trailColor: '#ffffff',
+    trailColor: '#ff0000',
   },
   {
     id: 'arc-2',
-    startUV: [0.82, 0.22],
+    startUV: [0.82, 0.35],
     endUV: [0.5, NEAR_BASKET_V],
     durationMs: 1000,
     startDelayMs: 1250,
-    apex: 13,
+    apex: 9,
     startY: 7,
     endY: RIM_HEIGHT,
     easing: 'gravity',
     color: '#f06000',
-    trailColor: '#ffffff',
+    trailColor: '#0b8e01',
   },
   {
     id: 'arc-3',
@@ -566,12 +545,12 @@ const DEMO_ARCS: ArcShot[] = [
     endUV: [0.5, FAR_BASKET_V],
     durationMs: 1200,
     startDelayMs: 2450,
-    apex: 10,
+    apex: 7,
     startY: 7,
     endY: RIM_HEIGHT,
     easing: 'gravity',
     color: '#f06000',
-    trailColor: '#ffffff',
+    trailColor: '#ff0000',
   },
 ];
 

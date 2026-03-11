@@ -51,7 +51,7 @@ export function BallArc({
   endY: endYProp,
   radius = 0.32,
   color = '#d9480f',
-  trailColor = '#ff922b',
+  trailColor = '#138d00',
   trailSegments = 48,
   easing = 'linear',
   showTrail = true,

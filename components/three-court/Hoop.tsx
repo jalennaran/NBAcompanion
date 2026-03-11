@@ -61,7 +61,7 @@ export function Hoop({ baselineZ, direction }: HoopProps) {
         <meshPhysicalMaterial
           color="#ffffff"
           transparent
-          opacity={0.35}
+          opacity={0.15}
           roughness={0.05}
           metalness={0}
           side={THREE.DoubleSide}
@@ -75,7 +75,7 @@ export function Hoop({ baselineZ, direction }: HoopProps) {
 
       {/* Shooter's square on front face */}
       <lineSegments position={[0, BB_CENTER_Y, bbZ + faceOffsetZ]} geometry={squareEdges}>
-        <lineBasicMaterial color="#ff6600" />
+        <lineBasicMaterial color="#aaaaaa" />
       </lineSegments>
 
       {/* ── Rim (orange torus) ── */}
