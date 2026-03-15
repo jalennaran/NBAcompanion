@@ -5,6 +5,7 @@ import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 
 import { courtUVToWorld } from './coordinate';
+import { ShooterSilhouette } from './ShooterSilhouette';
 
 export type BallArcEasing = 'linear' | 'gravity';
 
@@ -28,6 +29,8 @@ export type BallArcProps = {
   missed?: boolean;
   /** Signed X-axis deflection in feet after hitting the rim (default ±2.5) */
   missDeflect?: number;
+  /** Show a shooter silhouette at the shot origin (default true) */
+  showSilhouette?: boolean;
   onComplete?: () => void;
 };
 
@@ -57,6 +60,7 @@ export function BallArc({
   showTrail = true,
   missed = false,
   missDeflect = 2.5,
+  showSilhouette = true,
   onComplete,
 }: BallArcProps) {
   const sY = startYProp ?? baseY ?? 0.4;
@@ -188,6 +192,13 @@ export function BallArc({
 
   return (
     <group>
+      {showSilhouette && (
+        <ShooterSilhouette
+          position={[start.x, 0, start.z]}
+          target={[end.x, 0, end.z]}
+        />
+      )}
+
       {showTrail ? (
         <line>
           <bufferGeometry>

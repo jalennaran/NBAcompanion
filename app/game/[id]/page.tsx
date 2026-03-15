@@ -244,6 +244,8 @@ export default function GamePage() {
             homeTeamId={homeCompetitor?.team?.id}
             homeColor={homeCompetitor?.team?.color}
             awayColor={awayCompetitor?.team?.color}
+            isLive={isLive}
+            boxscorePlayers={data.boxscore?.players}
           />
           {/* Latest shot banner — shown under the 3D canvas */}
           {lastShotPlay && (() => {

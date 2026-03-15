@@ -7,7 +7,7 @@ import { CourtPlane, type CourtCanvasRenderFn, type CourtTextureInput } from './
 import { Hoop } from './Hoop';
 import { ShotsLayer, type ArcShot, type ShotMarker } from './ShotsLayer';
 import { COURT_H, COURT_W } from './coordinate';
-import type { Play } from '../../lib/types';
+import type { Play, TeamBoxScore } from '../../lib/types';
 
 export type ThreeCourtSceneProps = CourtTextureInput & {
   markers?: ShotMarker[];
@@ -25,6 +25,11 @@ export type ThreeCourtSceneProps = CourtTextureInput & {
   homeColor?: string;
   /** Hex color string (without #) for away team */
   awayColor?: string;
+  /** When true, all shot markers are shown at once and the latest arc animates
+   * immediately with looping — no queue sequencing. Use for in-progress games. */
+  isLive?: boolean;
+  /** Box-score player data — used to show player name & shooting % on the shot overlay */
+  boxscorePlayers?: TeamBoxScore[];
 };
 
 function BroadcastCamera() {
@@ -442,7 +447,71 @@ function stableDeflect(id: string): number {
   return n % 2 === 0 ? mag : -mag;
 }
 
-type ShotItem = { arc: ArcShot; marker: ShotMarker };
+type ShotType = '3PT' | 'FG' | 'FT';
+
+type ShotMeta = {
+  playerName: string;
+  shotType: ShotType;
+  shootingPct: string;
+};
+
+function parseShootingPct(statStr: string): string {
+  const parts = statStr.split('-');
+  if (parts.length !== 2) return '--';
+  const made = parseInt(parts[0], 10);
+  const attempted = parseInt(parts[1], 10);
+  if (isNaN(made) || isNaN(attempted) || attempted === 0) return '0.0%';
+  return `${((made / attempted) * 100).toFixed(1)}%`;
+}
+
+function computeShotMeta(
+  play: Play,
+  boxscorePlayers?: TeamBoxScore[],
+): ShotMeta | null {
+  const isFT = /free.?throw/i.test(play.type?.text ?? '');
+
+  const isThreePoint =
+    !isFT &&
+    (play.scoreValue === 3 ||
+      /three.?point|3.?pt/i.test(play.type?.text ?? '') ||
+      /three.?point|3.?pt/i.test(play.text ?? ''));
+
+  const shotType: ShotType = isFT ? 'FT' : isThreePoint ? '3PT' : 'FG';
+
+  const athleteId = play.participants?.[0]?.athlete?.id;
+  let playerName = '';
+  let shootingPct = '--';
+
+  if (athleteId && boxscorePlayers) {
+    for (const team of boxscorePlayers) {
+      const statGroup = team.statistics?.[0];
+      if (!statGroup) continue;
+      for (const a of statGroup.athletes) {
+        if (a.athlete.id === athleteId) {
+          playerName = a.athlete.shortName || a.athlete.displayName;
+          const statName = isFT ? 'FT' : isThreePoint ? '3PT' : 'FG';
+          const statIndex = statGroup.names.indexOf(statName);
+          if (statIndex >= 0) {
+            shootingPct = parseShootingPct(a.stats[statIndex]);
+          }
+          break;
+        }
+      }
+      if (playerName) break;
+    }
+  }
+
+  if (!playerName) {
+    const match = play.text?.match(/^(.+?)\s+(?:makes|misses)/i);
+    playerName = match ? match[1] : '';
+  }
+
+  if (!playerName) return null;
+
+  return { playerName, shotType, shootingPct };
+}
+
+type ShotItem = { arc: ArcShot; marker: ShotMarker; play: Play };
 
 /** Converts every shooting play into its arc + marker pair (all shots, newest last). */
 function useShotData(
@@ -509,7 +578,7 @@ function useShotData(
         enabled: true,
       };
 
-      return { arc, marker };
+      return { arc, marker, play: p };
     });
   }, [plays, homeTeamId, homeColor, awayColor]);
 }
@@ -567,6 +636,8 @@ export function ThreeCourtScene({
   homeTeamId = '',
   homeColor = 'c9082a',
   awayColor = '0077c0',
+  isLive = false,
+  boxscorePlayers,
   width = '100%',
   height = 560,
   centerLogoUrl,
@@ -586,6 +657,12 @@ export function ThreeCourtScene({
 
   /* All shot plays as arc/marker pairs — newest last */
   const allShotItems = useShotData(plays ?? [], homeTeamId, homeColor, awayColor);
+
+  /* Last shot item (stable reference) — used by the live-game path */
+  const lastShotItem = useMemo(
+    () => (allShotItems.length > 0 ? allShotItems[allShotItems.length - 1] : null),
+    [allShotItems],
+  );
 
   /* Ref-based queue so push/shift never trigger extra renders */
   const pendingQueueRef = useRef<ShotItem[]>([]);
@@ -611,9 +688,9 @@ export function ThreeCourtScene({
     }
   }, []);
 
-  /* Enqueue any newly seen shots whenever the plays prop updates */
+  /* Enqueue any newly seen shots whenever the plays prop updates (finished games only) */
   useEffect(() => {
-    if (!plays) return;
+    if (!plays || isLive) return;
     let hadNew = false;
     for (const item of allShotItems) {
       const id = String(item.arc.id);
@@ -626,7 +703,7 @@ export function ThreeCourtScene({
     if (hadNew && !isPlayingRef.current) {
       advance();
     }
-  }, [allShotItems, plays, advance]);
+  }, [allShotItems, plays, isLive, advance]);
 
   /* After each shot finishes, advance to the next one */
   useEffect(() => {
@@ -636,26 +713,40 @@ export function ThreeCourtScene({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [animKey, isPlaying, advance]);
 
-  /* When queue is empty, loop the last displayed shot on a slow interval */
+  /* Live games: immediately animate the latest shot and loop it; restart when a new shot arrives */
   useEffect(() => {
-    if (isPlaying || !displayItem) return;
+    if (!isLive || !lastShotItem) return;
+    setAnimKey((k) => k + 1);
     const id = setInterval(() => setAnimKey((k) => k + 1), ARC_LOOP_MS);
     return () => clearInterval(id);
-  }, [isPlaying, displayItem]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLive, lastShotItem]);
+
+  /* When queue is empty, loop the last displayed shot on a slow interval (finished games) */
+  useEffect(() => {
+    if (isLive || isPlaying || !displayItem) return;
+    const id = setInterval(() => setAnimKey((k) => k + 1), ARC_LOOP_MS);
+    return () => clearInterval(id);
+  }, [isLive, isPlaying, displayItem]);
 
   /* Stamp animKey onto the arc id so R3F sees it as a new component each cycle */
   const resolvedMarkers = useMemo(() => {
     if (markersProp) return markersProp;
     if (!plays) return DEMO_MARKERS;
+    if (isLive) return lastShotItem ? [lastShotItem.marker] : [];
     return displayItem ? [displayItem.marker] : [];
-  }, [markersProp, plays, displayItem]);
+  }, [markersProp, plays, isLive, lastShotItem, displayItem]);
 
   const resolvedArcs = useMemo(() => {
     if (arcsProp) return arcsProp;
     if (!plays) return DEMO_ARCS;
+    if (isLive) {
+      if (!lastShotItem) return [];
+      return [{ ...lastShotItem.arc, id: `${lastShotItem.arc.id}-${animKey}` }];
+    }
     if (!displayItem) return [];
     return [{ ...displayItem.arc, id: `${displayItem.arc.id}-${animKey}` }];
-  }, [arcsProp, plays, displayItem, animKey]);
+  }, [arcsProp, plays, isLive, lastShotItem, displayItem, animKey]);
 
   const fallbackRenderFn = useMemo(
     () => createDefaultCourtRenderFn({
@@ -670,8 +761,15 @@ export function ThreeCourtScene({
     ? { courtTextureUrl, courtSvgString, courtSvgElement, renderFn, widthPx, heightPx }
     : { renderFn: fallbackRenderFn, widthPx: 1200, heightPx: 2256 };
 
+  const currentPlay = isLive ? lastShotItem?.play : displayItem?.play;
+  const currentMeta = useMemo(
+    () => (currentPlay ? computeShotMeta(currentPlay, boxscorePlayers) : null),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [currentPlay, boxscorePlayers],
+  );
+
   return (
-    <div style={{ width, height }}>
+    <div style={{ width, height, position: 'relative' }}>
       <Canvas dpr={[1, 2]} camera={{ position: [118, 76, 18], fov: 26, near: 0.1, far: 600 }}>
         <BroadcastCamera />
 
@@ -685,6 +783,36 @@ export function ThreeCourtScene({
 
         <ShotsLayer markers={resolvedMarkers} arcs={resolvedArcs} />
       </Canvas>
+
+      {currentMeta && (
+        <div
+          key={animKey}
+          className="absolute top-4 left-4 z-10 pointer-events-none"
+          style={{ animation: 'shotInfoSlideIn 0.5s ease-out' }}
+        >
+          <div className="bg-black/60 backdrop-blur-xl rounded-2xl border border-white/[0.08] px-5 py-3.5 shadow-2xl min-w-[140px]">
+            <p className="text-white/90 text-sm font-semibold tracking-wide leading-none">
+              {currentMeta.playerName}
+            </p>
+            <div className="flex items-center gap-2.5 mt-2">
+              <span
+                className={`text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-md ${
+                  currentMeta.shotType === '3PT'
+                    ? 'bg-violet-500/20 text-violet-300'
+                    : currentMeta.shotType === 'FT'
+                      ? 'bg-amber-500/20 text-amber-300'
+                      : 'bg-sky-500/20 text-sky-300'
+                }`}
+              >
+                {currentMeta.shotType}
+              </span>
+              <span className="text-white text-xl font-bold tabular-nums tracking-tight">
+                {currentMeta.shootingPct}
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
