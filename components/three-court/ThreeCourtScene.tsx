@@ -583,52 +583,6 @@ function useShotData(
   }, [plays, homeTeamId, homeColor, awayColor]);
 }
 
-const DEMO_ARCS: ArcShot[] = [
-  {
-    id: 'arc-1',
-    startUV: [0.18, 0.2],
-    endUV: [0.5, NEAR_BASKET_V],
-    durationMs: 1100,
-    startDelayMs: 0,
-    apex: 7,
-    startY: 7,
-    endY: RIM_HEIGHT,
-    easing: 'gravity',
-    color: '#f06000',
-    trailColor: '#ff0000',
-  },
-  {
-    id: 'arc-2',
-    startUV: [0.82, 0.35],
-    endUV: [0.5, NEAR_BASKET_V],
-    durationMs: 1000,
-    startDelayMs: 1250,
-    apex: 9,
-    startY: 7,
-    endY: RIM_HEIGHT,
-    easing: 'gravity',
-    color: '#f06000',
-    trailColor: '#0b8e01',
-  },
-  {
-    id: 'arc-3',
-    startUV: [0.5, 0.78],
-    endUV: [0.5, FAR_BASKET_V],
-    durationMs: 1200,
-    startDelayMs: 2450,
-    apex: 7,
-    startY: 7,
-    endY: RIM_HEIGHT,
-    easing: 'gravity',
-    color: '#f06000',
-    trailColor: '#ff0000',
-  },
-];
-
-const DEMO_MARKERS: ShotMarker[] = [
-  { id: 'm-1', u: 0.18, v: 0.2, color: '#087f5b' },
-];
-
 export function ThreeCourtScene({
   markers: markersProp,
   arcs: arcsProp,
@@ -732,14 +686,14 @@ export function ThreeCourtScene({
   /* Stamp animKey onto the arc id so R3F sees it as a new component each cycle */
   const resolvedMarkers = useMemo(() => {
     if (markersProp) return markersProp;
-    if (!plays) return DEMO_MARKERS;
+    if (!plays) return [];
     if (isLive) return lastShotItem ? [lastShotItem.marker] : [];
     return displayItem ? [displayItem.marker] : [];
   }, [markersProp, plays, isLive, lastShotItem, displayItem]);
 
   const resolvedArcs = useMemo(() => {
     if (arcsProp) return arcsProp;
-    if (!plays) return DEMO_ARCS;
+    if (!plays) return [];
     if (isLive) {
       if (!lastShotItem) return [];
       return [{ ...lastShotItem.arc, id: `${lastShotItem.arc.id}-${animKey}` }];

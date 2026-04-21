@@ -2,6 +2,8 @@
 
 import { useEffect, useId, useMemo, useState } from 'react';
 import Image from 'next/image';
+import { ShotHeatmapLayer, type HeatmapTeamFilter } from './ShotHeatmapLayer';
+import type { Play } from '@/lib/types';
 
 export type OnCourtPlayer = {
   name: string;
@@ -22,6 +24,8 @@ type CourtStripProps = {
   className?: string;
   height?: number;
   showDemo?: boolean;
+  plays?: Play[];
+  homeTeamId?: string;
 };
 
 export default function CourtStrip({
@@ -36,8 +40,11 @@ export default function CourtStrip({
   className,
   height = 440,
   showDemo = false,
+  plays,
+  homeTeamId = '',
 }: CourtStripProps) {
   const [logoFailed, setLogoFailed] = useState(!homeTeamLogoUrl);
+  const [heatmapFilter, setHeatmapFilter] = useState<HeatmapTeamFilter | null>(null);
   const svgId = useId().replace(/:/g, '');
 
   useEffect(() => {
@@ -180,7 +187,15 @@ export default function CourtStrip({
           <rect x="2.2" y="20.8" width="1.4" height="8.4" rx="0.35" fill="#dc2626" opacity="0.7" />
           <rect x="90.4" y="20.8" width="1.4" height="8.4" rx="0.35" fill="#dc2626" opacity="0.7" />
 
-          {/* TODO: plot shots using ESPN API coordinates */}
+          {/* Shot heat map — shown when a filter is active */}
+          {heatmapFilter && plays && plays.length > 0 && (
+            <ShotHeatmapLayer
+              plays={plays}
+              homeTeamId={homeTeamId}
+              teamFilter={heatmapFilter}
+            />
+          )}
+
           {showDemo && (
             <g aria-label="Demo shot markers">
               <line x1="34" y1="15" x2="37" y2="18" stroke="#9ca3af" strokeWidth="0.22" />
@@ -210,6 +225,30 @@ export default function CourtStrip({
             />
           )}
         </div>
+
+        {/* Heat map toggle — only shown when plays data is available */}
+        {plays && plays.length > 0 && (
+          <div className="absolute bottom-2 right-2 flex items-center gap-1 bg-black/50 backdrop-blur-sm rounded-lg px-2 py-1 border border-white/10">
+            <span className="text-[9px] text-slate-400 uppercase tracking-widest font-bold mr-0.5">Heat</span>
+            {([
+              { filter: 'away', label: awayTeamName ?? 'Away' },
+              { filter: 'both', label: 'All' },
+              { filter: 'home', label: homeTeamName },
+            ] as const).map(({ filter, label }) => (
+              <button
+                key={filter}
+                onClick={() => setHeatmapFilter(heatmapFilter === filter ? null : filter)}
+                className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded transition-colors ${
+                  heatmapFilter === filter
+                    ? 'bg-orange-500/80 text-white'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
         </div>
 
         {/* Home team on-court panel (right) */}

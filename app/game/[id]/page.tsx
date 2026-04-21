@@ -261,6 +261,8 @@ export default function GamePage() {
           homeOnCourt={homeOnCourt}
           panelLabel={isPregame ? 'Projected Starters' : undefined}
           className="mt-6"
+          plays={data.plays}
+          homeTeamId={homeCompetitor?.team?.id}
         />
 
         {/* 3D court view — live shot markers and arc animations driven by play-by-play */}
