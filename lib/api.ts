@@ -1,4 +1,4 @@
-import { ScoreboardResponse, GameSummary } from './types';
+import { ScoreboardResponse, GameSummary, PredictionsFile } from './types';
 
 const ESPN_API_BASE = 'http://site.api.espn.com/apis/site/v2/sports/basketball/nba';
 
@@ -76,6 +76,17 @@ export async function fetchPlayerStats(athleteId: string): Promise<any> {
   }
 
   return response.json();
+}
+
+// Fetch today's game predictions
+export async function fetchPredictions(): Promise<PredictionsFile | null> {
+  try {
+    const response = await fetch('/api/predictions', { cache: 'no-store' });
+    if (!response.ok) return null;
+    return response.json();
+  } catch {
+    return null;
+  }
 }
 
 // Fetch team roster with season averages

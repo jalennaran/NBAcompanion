@@ -1,11 +1,11 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { fetchGameSummary, fetchTeamRoster } from '@/lib/api';
+import { fetchGameSummary, fetchTeamRoster, fetchPredictions } from '@/lib/api';
 import { useParams } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
-import type { Competitor, Play, TeamBoxScore } from '@/lib/types';
+import type { Competitor, Play, TeamBoxScore, GamePrediction } from '@/lib/types';
 import CourtStrip from '@/components/game/CourtStrip';
 import type { OnCourtPlayer } from '@/components/game/CourtStrip';
 import { ThreeCourtScene } from '@/components/three-court/ThreeCourtScene';
@@ -86,6 +86,36 @@ export default function GamePage() {
     enabled: isPregame && !!homeCompetitor?.team?.id,
     staleTime: Infinity,
   });
+
+  const { data: predictionsData } = useQuery({
+    queryKey: ['predictions'],
+    queryFn: fetchPredictions,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const ESPN_TO_NBA_ABBR: Record<string, string> = {
+    GS: 'GSW',
+    NO: 'NOP',
+    NY: 'NYK',
+    SA: 'SAS',
+    UTAH: 'UTA',
+    WSH: 'WAS',
+  };
+
+  const normalizeTeamAbbreviation = (abbr?: string): string | undefined => {
+    if (!abbr) return abbr;
+    return ESPN_TO_NBA_ABBR[abbr] ?? abbr;
+  };
+
+  const normalizedHomeAbbr = normalizeTeamAbbreviation(homeCompetitor?.team?.abbreviation);
+  const normalizedAwayAbbr = normalizeTeamAbbreviation(awayCompetitor?.team?.abbreviation);
+
+  const gamePrediction: GamePrediction | null =
+    predictionsData?.games.find(
+      (g) =>
+        g.home_team === normalizedHomeAbbr &&
+        g.away_team === normalizedAwayAbbr
+    ) ?? null;
 
   if (isLoading) {
     return (
@@ -311,15 +341,24 @@ export default function GamePage() {
             )}
           </div>
 
-          {/* Play-by-play feed */}
+          {/* Center panel: predictions pregame/postgame, play-by-play during */}
           <div className="order-1 xl:order-2">
-            <PlayByPlayFeed
-              plays={plays}
-              homeAbbrev={homeCompetitor?.team?.abbreviation ?? ''}
-              awayAbbrev={awayCompetitor?.team?.abbreviation ?? ''}
-              homeColor={homeCompetitor?.team?.color}
-              awayColor={awayCompetitor?.team?.color}
-            />
+            {isLive ? (
+              <PlayByPlayFeed
+                plays={plays}
+                homeAbbrev={homeCompetitor?.team?.abbreviation ?? ''}
+                awayAbbrev={awayCompetitor?.team?.abbreviation ?? ''}
+                homeColor={homeCompetitor?.team?.color}
+                awayColor={awayCompetitor?.team?.color}
+              />
+            ) : (
+              <GamePredictionsPanel
+                prediction={gamePrediction}
+                homeCompetitor={homeCompetitor}
+                awayCompetitor={awayCompetitor}
+                isFinal={isFinal}
+              />
+            )}
           </div>
 
           {/* Home team box score */}
@@ -590,6 +629,195 @@ function PlayItem({
               {play.homeScore} {homeAbbrev}
             </span>
           </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ─── Game Predictions Panel ─────────────────────────────────────────── */
+
+function GamePredictionsPanel({
+  prediction,
+  homeCompetitor,
+  awayCompetitor,
+  isFinal,
+}: {
+  prediction: GamePrediction | null;
+  homeCompetitor?: Competitor;
+  awayCompetitor?: Competitor;
+  isFinal?: boolean;
+}) {
+  const fmtOdds = (n: number) => (n > 0 ? `+${n}` : `${n}`);
+  const fmtPct = (n: number) => `${n.toFixed(1)}%`;
+
+  return (
+    <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-xl rounded-3xl border border-slate-700/50 flex flex-col h-[700px]">
+      {/* Header */}
+      <div className="flex items-center gap-2 px-5 py-4 border-b border-slate-700/50">
+        <svg className="w-5 h-5 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+        </svg>
+        <h2 className="text-white font-bold text-sm uppercase tracking-wider">Game Predictions</h2>
+        {isFinal && (
+          <span className="ml-auto text-xs text-emerald-400 font-semibold uppercase tracking-wider bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/30">
+            Final Results
+          </span>
+        )}
+      </div>
+
+      <div className="flex-1 overflow-y-auto p-4 space-y-3 scrollbar-subtle">
+        {!prediction ? (
+          <div className="flex items-center justify-center h-full text-slate-500 text-sm">
+            No predictions available for this game
+          </div>
+        ) : (
+          <>
+            {/* Predicted score */}
+            <div className="bg-slate-800/60 rounded-2xl p-4 border border-slate-700/40">
+              <p className="text-slate-500 text-[10px] uppercase tracking-widest mb-3 font-bold">Predicted Score</p>
+              <div className="space-y-2">
+                {[
+                  { competitor: awayCompetitor, predScore: prediction.pred_away_score },
+                  { competitor: homeCompetitor, predScore: prediction.pred_home_score },
+                ].map(({ competitor, predScore }) => {
+                  const actual = competitor?.score ? parseInt(competitor.score) : null;
+                  const diff = actual !== null ? actual - Math.round(predScore) : null;
+                  return (
+                    <div key={competitor?.team?.id} className="flex items-center gap-3">
+                      {competitor?.team?.logo && (
+                        <Image src={competitor.team.logo} alt={competitor.team.abbreviation} width={24} height={24} className="object-contain flex-shrink-0" />
+                      )}
+                      <span className="text-slate-300 font-medium text-sm flex-1">{competitor?.team?.abbreviation}</span>
+                      <span className="text-slate-400 text-sm font-mono">{predScore.toFixed(1)}</span>
+                      {isFinal && actual !== null && (
+                        <>
+                          <span className="text-slate-600 text-xs">→</span>
+                          <span className="text-white font-bold text-sm font-mono w-8 text-right">{actual}</span>
+                          <span className={`text-xs font-mono w-10 text-right ${diff! > 0 ? 'text-emerald-400' : diff! < 0 ? 'text-red-400' : 'text-slate-500'}`}>
+                            {diff! > 0 ? `+${diff}` : diff}
+                          </span>
+                        </>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Win probability bar */}
+            <div className="bg-slate-800/60 rounded-2xl p-4 border border-slate-700/40">
+              <p className="text-slate-500 text-[10px] uppercase tracking-widest mb-3 font-bold">Win Probability</p>
+              <div className="flex items-center gap-2 text-xs font-mono mb-2">
+                <span style={{ color: awayCompetitor?.team?.color ? `#${awayCompetitor.team.color}` : undefined }} className="text-slate-300 font-bold w-10">
+                  {fmtPct(prediction.moneyline.predicted_away_win_pct)}
+                </span>
+                <div className="flex-1 h-2 rounded-full bg-slate-700 overflow-hidden">
+                  <div
+                    className="h-full rounded-full"
+                    style={{
+                      width: `${prediction.moneyline.predicted_away_win_pct}%`,
+                      background: awayCompetitor?.team?.color ? `#${awayCompetitor.team.color}` : '#94a3b8',
+                    }}
+                  />
+                </div>
+                <span style={{ color: homeCompetitor?.team?.color ? `#${homeCompetitor.team.color}` : undefined }} className="text-slate-300 font-bold w-10 text-right">
+                  {fmtPct(prediction.moneyline.predicted_home_win_pct)}
+                </span>
+              </div>
+              <div className="flex justify-between text-[10px] text-slate-500">
+                <span>{awayCompetitor?.team?.abbreviation}</span>
+                <span>{homeCompetitor?.team?.abbreviation}</span>
+              </div>
+            </div>
+
+            {/* Moneyline */}
+            <div className="bg-slate-800/60 rounded-2xl p-4 border border-slate-700/40">
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-slate-500 text-[10px] uppercase tracking-widest font-bold">Moneyline</p>
+                {prediction.moneyline.bet_flag && (
+                  <span className="text-[10px] font-bold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/30 uppercase tracking-wider">
+                    ★ Value Bet: {prediction.moneyline.bet_side === 'home' ? homeCompetitor?.team?.abbreviation : awayCompetitor?.team?.abbreviation}
+                  </span>
+                )}
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                {[
+                  { label: awayCompetitor?.team?.abbreviation ?? 'Away', odds: prediction.moneyline.ml_away, winPct: prediction.moneyline.predicted_away_win_pct, impliedPct: prediction.moneyline.implied_away_pct, color: awayCompetitor?.team?.color },
+                  { label: homeCompetitor?.team?.abbreviation ?? 'Home', odds: prediction.moneyline.ml_home, winPct: prediction.moneyline.predicted_home_win_pct, impliedPct: prediction.moneyline.implied_home_pct, color: homeCompetitor?.team?.color },
+                ].map(({ label, odds, winPct, impliedPct, color }) => (
+                  <div key={label} className="bg-slate-900/50 rounded-xl p-3">
+                    <p className="text-[10px] text-slate-500 mb-1">{label}</p>
+                    <p className="text-lg font-black font-mono" style={{ color: color ? `#${color}` : undefined }}>{fmtOdds(odds)}</p>
+                    <p className="text-xs text-slate-400 mt-1">Pred: <span className="text-slate-200">{fmtPct(winPct)}</span></p>
+                    <p className="text-xs text-slate-600">Implied: {fmtPct(impliedPct)}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Spread */}
+            <div className="bg-slate-800/60 rounded-2xl p-4 border border-slate-700/40">
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-slate-500 text-[10px] uppercase tracking-widest font-bold">Spread</p>
+                {prediction.spread.bet_flag && (
+                  <span className="text-[10px] font-bold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/30 uppercase tracking-wider">
+                    ★ Value Bet: {prediction.spread.bet_side === 'home' ? homeCompetitor?.team?.abbreviation : awayCompetitor?.team?.abbreviation}
+                  </span>
+                )}
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                {[
+                  { label: awayCompetitor?.team?.abbreviation ?? 'Away', line: -prediction.spread.line, coverPct: prediction.spread.away_cover_pct, color: awayCompetitor?.team?.color },
+                  { label: homeCompetitor?.team?.abbreviation ?? 'Home', line: prediction.spread.line, coverPct: prediction.spread.home_cover_pct, color: homeCompetitor?.team?.color },
+                ].map(({ label, line, coverPct, color }) => (
+                  <div key={label} className="bg-slate-900/50 rounded-xl p-3">
+                    <p className="text-[10px] text-slate-500 mb-1">{label}</p>
+                    <p className="text-lg font-black font-mono" style={{ color: color ? `#${color}` : undefined }}>
+                      {line > 0 ? `+${line}` : line}
+                    </p>
+                    <p className="text-xs text-slate-400 mt-1">Cover: <span className="text-slate-200">{fmtPct(coverPct)}</span></p>
+                  </div>
+                ))}
+              </div>
+              <p className="text-xs text-slate-500 mt-2">Predicted margin: <span className="text-slate-300 font-mono">{prediction.spread.predicted_margin.toFixed(1)}</span></p>
+            </div>
+
+            {/* Over/Under */}
+            <div className="bg-slate-800/60 rounded-2xl p-4 border border-slate-700/40">
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-slate-500 text-[10px] uppercase tracking-widest font-bold">Over / Under</p>
+                {prediction.over_under.bet_flag && (
+                  <span className="text-[10px] font-bold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/30 uppercase tracking-wider">
+                    ★ Value: {prediction.over_under.bet_side.toUpperCase()}
+                  </span>
+                )}
+              </div>
+              <div className="flex items-end gap-4 mb-3">
+                <div>
+                  <p className="text-[10px] text-slate-500">Line</p>
+                  <p className="text-2xl font-black text-white font-mono">{prediction.over_under.line}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-slate-500">Predicted Total</p>
+                  <p className="text-2xl font-black text-slate-300 font-mono">{prediction.over_under.predicted_total.toFixed(1)}</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                {[
+                  { label: 'Over', pct: prediction.over_under.over_pct },
+                  { label: 'Under', pct: prediction.over_under.under_pct },
+                ].map(({ label, pct }) => (
+                  <div key={label} className="bg-slate-900/50 rounded-xl p-3">
+                    <p className="text-[10px] text-slate-500 mb-1">{label}</p>
+                    <p className={`text-lg font-black font-mono ${label.toLowerCase() === prediction.over_under.bet_side ? 'text-amber-400' : 'text-slate-300'}`}>
+                      {fmtPct(pct)}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </>
         )}
       </div>
     </div>

@@ -1,0 +1,135 @@
+{
+  "generated_at": "2026-04-20T23:54:17.192942+00:00",
+  "game_date": "2026-04-20",
+  "games": [
+    {
+      "game_date": "2026-04-20",
+      "commence_time": "2026-04-20T23:00Z",
+      "home_team": "CLE",
+      "away_team": "TOR",
+      "home_team_full": "Cleveland Cavaliers",
+      "away_team_full": "Toronto Raptors",
+      "pred_home_score": 114.8,
+      "pred_away_score": 104.9,
+      "spread": {
+        "line": -9.5,
+        "predicted_margin": 9.98,
+        "home_cover_pct": 50.9,
+        "away_cover_pct": 49.1,
+        "push_pct": 0.0,
+        "bet_side": "home",
+        "bet_edge": 0.0092,
+        "bet_flag": false
+      },
+      "moneyline": {
+        "ml_home": -455,
+        "ml_away": 350,
+        "predicted_home_win_pct": 78.1,
+        "predicted_away_win_pct": 21.9,
+        "home_win_pct": 78.1,
+        "away_win_pct": 21.9,
+        "implied_home_pct": 82.0,
+        "implied_away_pct": 22.2,
+        "bet_side": "away",
+        "bet_edge": -0.003,
+        "bet_flag": false
+      },
+      "over_under": {
+        "line": 221.5,
+        "predicted_total": 219.68,
+        "over_pct": 46.2,
+        "under_pct": 53.8,
+        "push_pct": 0.0,
+        "bet_side": "under",
+        "bet_edge": 0.0378,
+        "bet_flag": true
+      }
+    },
+    {
+      "game_date": "2026-04-20",
+      "commence_time": "2026-04-21T00:00Z",
+      "home_team": "NYK",
+      "away_team": "ATL",
+      "home_team_full": "New York Knicks",
+      "away_team_full": "Atlanta Hawks",
+      "pred_home_score": 111.3,
+      "pred_away_score": 106.6,
+      "spread": {
+        "line": -6.5,
+        "predicted_margin": 4.68,
+        "home_cover_pct": 43.9,
+        "away_cover_pct": 56.1,
+        "push_pct": 0.0,
+        "bet_side": "away",
+        "bet_edge": 0.0606,
+        "bet_flag": true
+      },
+      "moneyline": {
+        "ml_home": -245,
+        "ml_away": 200,
+        "predicted_home_win_pct": 63.8,
+        "predicted_away_win_pct": 36.2,
+        "home_win_pct": 63.8,
+        "away_win_pct": 36.2,
+        "implied_home_pct": 71.0,
+        "implied_away_pct": 33.3,
+        "bet_side": "away",
+        "bet_edge": 0.0289,
+        "bet_flag": false
+      },
+      "over_under": {
+        "line": 218.5,
+        "predicted_total": 217.82,
+        "over_pct": 48.6,
+        "under_pct": 51.3,
+        "push_pct": 0.0,
+        "bet_side": "under",
+        "bet_edge": 0.0135,
+        "bet_flag": false
+      }
+    },
+    {
+      "game_date": "2026-04-20",
+      "commence_time": "2026-04-21T02:30Z",
+      "home_team": "DEN",
+      "away_team": "MIN",
+      "home_team_full": "Denver Nuggets",
+      "away_team_full": "Minnesota Timberwolves",
+      "pred_home_score": 116.0,
+      "pred_away_score": 111.1,
+      "spread": {
+        "line": -7.5,
+        "predicted_margin": 4.93,
+        "home_cover_pct": 42.3,
+        "away_cover_pct": 57.7,
+        "push_pct": 0.0,
+        "bet_side": "away",
+        "bet_edge": 0.0774,
+        "bet_flag": true
+      },
+      "moneyline": {
+        "ml_home": -298,
+        "ml_away": 240,
+        "predicted_home_win_pct": 65.1,
+        "predicted_away_win_pct": 34.9,
+        "home_win_pct": 65.1,
+        "away_win_pct": 34.9,
+        "implied_home_pct": 74.9,
+        "implied_away_pct": 29.4,
+        "bet_side": "away",
+        "bet_edge": 0.0546,
+        "bet_flag": true
+      },
+      "over_under": {
+        "line": 231.5,
+        "predicted_total": 227.04,
+        "over_pct": 40.2,
+        "under_pct": 59.8,
+        "push_pct": 0.0,
+        "bet_side": "under",
+        "bet_edge": 0.0984,
+        "bet_flag": true
+      }
+    }
+  ]
+}

@@ -267,3 +267,53 @@ export interface Official {
     name: string;
   };
 }
+
+export interface GamePrediction {
+  game_date: string;
+  commence_time: string;
+  home_team: string;
+  away_team: string;
+  home_team_full: string;
+  away_team_full: string;
+  pred_home_score: number;
+  pred_away_score: number;
+  spread: {
+    line: number;
+    predicted_margin: number;
+    home_cover_pct: number;
+    away_cover_pct: number;
+    push_pct: number;
+    bet_side: string;
+    bet_edge: number;
+    bet_flag: boolean;
+  };
+  moneyline: {
+    ml_home: number;
+    ml_away: number;
+    predicted_home_win_pct: number;
+    predicted_away_win_pct: number;
+    home_win_pct: number;
+    away_win_pct: number;
+    implied_home_pct: number;
+    implied_away_pct: number;
+    bet_side: string;
+    bet_edge: number;
+    bet_flag: boolean;
+  };
+  over_under: {
+    line: number;
+    predicted_total: number;
+    over_pct: number;
+    under_pct: number;
+    push_pct: number;
+    bet_side: string;
+    bet_edge: number;
+    bet_flag: boolean;
+  };
+}
+
+export interface PredictionsFile {
+  generated_at: string;
+  game_date: string;
+  games: GamePrediction[];
+}
