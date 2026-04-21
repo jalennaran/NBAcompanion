@@ -111,11 +111,13 @@ export default function GamePage() {
   const normalizedAwayAbbr = normalizeTeamAbbreviation(awayCompetitor?.team?.abbreviation);
 
   const gamePrediction: GamePrediction | null =
-    predictionsData?.games.find(
-      (g) =>
-        g.home_team === normalizedHomeAbbr &&
-        g.away_team === normalizedAwayAbbr
-    ) ?? null;
+    predictionsData
+      ?.flatMap((entry) => entry.games)
+      .find(
+        (g) =>
+          g.home_team === normalizedHomeAbbr &&
+          g.away_team === normalizedAwayAbbr
+      ) ?? null;
 
   if (isLoading) {
     return (

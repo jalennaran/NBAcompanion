@@ -79,11 +79,13 @@ export async function fetchPlayerStats(athleteId: string): Promise<any> {
 }
 
 // Fetch today's game predictions
-export async function fetchPredictions(): Promise<PredictionsFile | null> {
+export async function fetchPredictions(): Promise<PredictionsFile[] | null> {
   try {
     const response = await fetch('/api/predictions', { cache: 'no-store' });
     if (!response.ok) return null;
-    return response.json();
+    const data = await response.json();
+    // Support both array (new format) and single object (legacy format)
+    return Array.isArray(data) ? data : [data];
   } catch {
     return null;
   }
