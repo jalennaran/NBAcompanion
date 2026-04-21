@@ -1,6 +1,6 @@
 import { ScoreboardResponse, GameSummary, PredictionsFile } from './types';
 
-const ESPN_API_BASE = 'http://site.api.espn.com/apis/site/v2/sports/basketball/nba';
+const ESPN_API_BASE = 'https://site.api.espn.com/apis/site/v2/sports/basketball/nba';
 
 
 // Fetch today's scoreboard with all games
