@@ -27,6 +27,12 @@ const MARKET_STYLES: Record<BetMarket, string> = {
   over_under: 'bg-teal-900/50 text-teal-300 border-teal-700/50',
 };
 
+const ML_TIER: Record<string, { label: string; badge: string; cardBorder: string; cardBg: string }> = {
+  strong:   { label: '★★ Strong Edge',  badge: 'text-amber-300 bg-amber-500/15 border-amber-500/40', cardBorder: 'border-amber-500/35', cardBg: 'bg-amber-950/20' },
+  value:    { label: '★ Value Edge',    badge: 'text-blue-300  bg-blue-500/15  border-blue-500/40',  cardBorder: 'border-blue-500/30',  cardBg: 'bg-blue-950/15'  },
+  longshot: { label: '◇ Longshot',      badge: 'text-slate-400 bg-slate-700/40 border-slate-600/50', cardBorder: 'border-slate-600/30', cardBg: ''                },
+};
+
 function betPickLabel(pred: GamePrediction, market: BetMarket): string {
   if (market === 'moneyline') {
     const side = pred.moneyline.bet_side;
@@ -338,6 +344,8 @@ export default function GamePage() {
                 const label = betPickLabel(gamePrediction, market);
                 const liveStatus = isLive ? betLiveStatus(gamePrediction, market, h, a, period, clockSecs) : null;
                 const finalResult = isFinal ? betEvaluate(gamePrediction, market, h, a) : null;
+                const mlConf = market === 'moneyline' ? (gamePrediction.moneyline.confidence ?? 'none') : 'none';
+                const tier = mlConf !== 'none' ? ML_TIER[mlConf] : null;
                 return (
                   <div
                     key={market}
@@ -346,6 +354,7 @@ export default function GamePage() {
                         ? liveStatus.isGood ? 'bg-emerald-950/25 border-emerald-500/25' : 'bg-red-950/25 border-red-500/25'
                         : finalResult === 'win' ? 'bg-emerald-950/25 border-emerald-500/25'
                         : finalResult === 'loss' ? 'bg-red-950/25 border-red-500/25'
+                        : tier ? `${tier.cardBg} ${tier.cardBorder}`
                         : 'bg-slate-900/40 border-slate-700/30'
                     }`}
                   >
@@ -353,6 +362,11 @@ export default function GamePage() {
                       {MARKET_LABEL[market]}
                     </span>
                     <span className="text-slate-200 text-sm font-medium leading-tight">{label}</span>
+                    {tier && !liveStatus && !finalResult && (
+                      <span className={`self-start px-2 py-0.5 rounded-md text-[10px] font-bold border ${tier.badge}`}>
+                        {tier.label}
+                      </span>
+                    )}
                     {liveStatus && (
                       <span className={`text-xs font-semibold ${liveStatus.isGood ? 'text-emerald-400' : 'text-red-400'}`}>
                         {liveStatus.label}
@@ -863,11 +877,19 @@ function GamePredictionsPanel({
             <div className="bg-slate-800/60 rounded-2xl p-4 border border-slate-700/40">
               <div className="flex items-center justify-between mb-3">
                 <p className="text-slate-500 text-[10px] uppercase tracking-widest font-bold">Moneyline</p>
-                {prediction.moneyline.bet_flag && (
-                  <span className="text-[10px] font-bold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/30 uppercase tracking-wider">
-                    ★ Value Bet: {prediction.moneyline.bet_side === 'home' ? homeCompetitor?.team?.abbreviation : awayCompetitor?.team?.abbreviation}
-                  </span>
-                )}
+                {(() => {
+                  const conf = prediction.moneyline.confidence;
+                  if (!conf || conf === 'none') return null;
+                  const tier = ML_TIER[conf];
+                  const abbr = prediction.moneyline.bet_side === 'home'
+                    ? homeCompetitor?.team?.abbreviation
+                    : awayCompetitor?.team?.abbreviation;
+                  return (
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${tier.badge}`}>
+                      {tier.label}: {abbr}
+                    </span>
+                  );
+                })()}
               </div>
               <div className="grid grid-cols-2 gap-3">
                 {[

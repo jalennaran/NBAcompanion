@@ -48,6 +48,12 @@ const MARKET_STYLES: Record<BetMarket, string> = {
   over_under: 'bg-teal-900/50 text-teal-300 border-teal-700/50',
 };
 
+const ML_TIER: Record<string, { label: string; badge: string; cardBorder: string; cardBg: string }> = {
+  strong:   { label: '★★ Strong', badge: 'text-amber-300 bg-amber-500/15 border-amber-500/40', cardBorder: 'border-amber-500/35', cardBg: 'bg-amber-950/20' },
+  value:    { label: '★ Value',   badge: 'text-blue-300  bg-blue-500/15  border-blue-500/40',  cardBorder: 'border-blue-500/30',  cardBg: 'bg-blue-950/15'  },
+  longshot: { label: '◇ Longshot',badge: 'text-slate-400 bg-slate-700/40 border-slate-600/50', cardBorder: 'border-slate-600/30', cardBg: ''                },
+};
+
 function pickLabel(pred: GamePrediction, market: BetMarket): string {
   if (market === 'moneyline') {
     const side = pred.moneyline.bet_side;
@@ -449,6 +455,8 @@ export default function Home() {
                         const finalResult = isFinal
                           ? evaluateBet(prediction, market, homeScore, awayScore)
                           : null;
+                        const mlConf = market === 'moneyline' ? (prediction.moneyline.confidence ?? 'none') : 'none';
+                        const tier = mlConf !== 'none' ? ML_TIER[mlConf] : null;
                         return (
                           <div
                             key={market}
@@ -461,6 +469,8 @@ export default function Home() {
                                 ? 'bg-emerald-950/25 border-emerald-500/25'
                                 : finalResult === 'loss'
                                 ? 'bg-red-950/25 border-red-500/25'
+                                : tier
+                                ? `${tier.cardBg} ${tier.cardBorder}`
                                 : 'bg-slate-900/30 border-slate-700/20'
                             }`}
                           >
@@ -470,6 +480,11 @@ export default function Home() {
                             <span className="text-slate-200 text-sm font-medium flex-1 min-w-0 truncate">
                               {label}
                             </span>
+                            {tier && !liveStatus && !finalResult && (
+                              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md border shrink-0 ${tier.badge}`}>
+                                {tier.label}
+                              </span>
+                            )}
                             {liveStatus && (
                               <span className={`text-xs font-semibold shrink-0 ${liveStatus.isGood ? 'text-emerald-400' : 'text-red-400'}`}>
                                 {liveStatus.label}

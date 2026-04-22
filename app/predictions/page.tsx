@@ -52,6 +52,7 @@ interface EvaluatedBet {
   kelly_units?: number;
   modelPct?: number;
   impliedPct?: number;
+  mlConfidence?: 'strong' | 'value' | 'longshot' | 'none';
 }
 
 interface UpcomingGame {
@@ -276,7 +277,18 @@ function PastBetRow({ bet }: { bet: EvaluatedBet }) {
       </div>
       <div className="flex-1 text-slate-200 text-sm font-medium min-w-0 truncate">
         {bet.pick}
-        {bet.bet_flag && <span className="ml-2 text-amber-400 text-xs">⚡</span>}
+        {bet.market === 'moneyline' && bet.mlConfidence === 'strong' && (
+          <span className="ml-2 text-amber-300 text-xs">★★</span>
+        )}
+        {bet.market === 'moneyline' && bet.mlConfidence === 'value' && (
+          <span className="ml-2 text-blue-300 text-xs">★</span>
+        )}
+        {bet.market === 'moneyline' && bet.mlConfidence === 'longshot' && (
+          <span className="ml-2 text-slate-500 text-xs">◇</span>
+        )}
+        {bet.market !== 'moneyline' && bet.bet_flag && (
+          <span className="ml-2 text-amber-400 text-xs">⚡</span>
+        )}
       </div>
       {bet.actualHome !== undefined && (
         <div className="text-slate-400 text-xs shrink-0 tabular-nums">
@@ -339,7 +351,7 @@ function LegendSection() {
         </div>
       ),
       title: 'Top Drivers',
-      desc: 'The model features that most influenced the margin prediction. Bar length = relative importance weight. Longer = more influence on the final score margin estimate.',
+      desc: 'The model features that most influenced this specific game\'s margin prediction. Bar length = relative contribution size. Purple = pushes toward home win, orange = pushes toward away win. Values are in points.',
     },
     {
       icon: (
@@ -447,19 +459,62 @@ function SimBar({
   );
 }
 
-function FeatureRow({ feature, importance }: { feature: string; importance: number }) {
+function FeatureRow({ feature, contribution, maxAbs }: { feature: string; contribution: number; maxAbs: number }) {
   const label = feature.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+  const pct = maxAbs > 0 ? Math.abs(contribution) / maxAbs : 0;
+  const isPositive = contribution >= 0;
   return (
     <div className="flex items-center gap-2">
       <span className="text-slate-500 text-xs w-28 truncate shrink-0">{label}</span>
       <div className="flex-1 h-1.5 bg-slate-800 rounded-full overflow-hidden">
         <div
-          className="h-full bg-purple-500/60 rounded-full"
-          style={{ width: `${(importance * 100).toFixed(0)}%` }}
+          className={`h-full rounded-full ${isPositive ? 'bg-purple-500/60' : 'bg-orange-500/60'}`}
+          style={{ width: `${(pct * 100).toFixed(0)}%` }}
         />
       </div>
-      <span className="text-slate-500 text-xs w-9 text-right shrink-0 tabular-nums">
-        {(importance * 100).toFixed(1)}%
+      <span className={`text-xs w-12 text-right shrink-0 tabular-nums ${isPositive ? 'text-purple-400' : 'text-orange-400'}`}>
+        {isPositive ? '+' : ''}{contribution.toFixed(1)}
+      </span>
+    </div>
+  );
+}
+
+const ML_CONFIDENCE_CONFIG = {
+  strong: {
+    label: '★★ Strong Edge',
+    badge: 'bg-amber-500/20 text-amber-300 border-amber-500/40',
+    border: 'border-amber-500/30',
+    bg: 'bg-amber-950/20',
+  },
+  value: {
+    label: '★ Value Edge',
+    badge: 'bg-blue-500/20 text-blue-300 border-blue-500/40',
+    border: 'border-blue-500/25',
+    bg: 'bg-blue-950/15',
+  },
+  longshot: {
+    label: '◇ Longshot',
+    badge: 'bg-slate-700/50 text-slate-400 border-slate-600/50',
+    border: 'border-slate-600/30',
+    bg: '',
+  },
+} as const;
+
+function MLConfidenceBadge({
+  confidence,
+  ev,
+}: {
+  confidence: 'strong' | 'value' | 'longshot';
+  ev?: number;
+}) {
+  const cfg = ML_CONFIDENCE_CONFIG[confidence];
+  return (
+    <div className="flex items-center gap-1.5 shrink-0">
+      {ev !== undefined && confidence !== 'longshot' && (
+        <span className="text-emerald-400 text-xs font-bold">+${ev.toFixed(0)} EV</span>
+      )}
+      <span className={`px-2 py-0.5 rounded-md text-xs font-bold border ${cfg.badge}`}>
+        {cfg.label}
       </span>
     </div>
   );
@@ -549,9 +604,12 @@ function UpcomingGameCard({ game }: { game: UpcomingGame }) {
             Top Drivers
           </div>
           <div className="space-y-1.5">
-            {topMarginFeatures.map(f => (
-              <FeatureRow key={f.feature} feature={f.feature} importance={f.importance} />
-            ))}
+            {(() => {
+              const maxAbs = Math.max(...topMarginFeatures.map(f => Math.abs(f.contribution ?? 0)), 0.001);
+              return topMarginFeatures.map(f => (
+                <FeatureRow key={f.feature} feature={f.feature} contribution={f.contribution ?? 0} maxAbs={maxAbs} />
+              ));
+            })()}
           </div>
         </div>
       )}
@@ -570,6 +628,8 @@ function UpcomingGameCard({ game }: { game: UpcomingGame }) {
                   ? liveStatus.isGood
                     ? 'bg-emerald-950/25 border-emerald-500/25'
                     : 'bg-red-950/25 border-red-500/25'
+                  : bet.market === 'moneyline' && bet.mlConfidence && bet.mlConfidence !== 'none'
+                  ? `${ML_CONFIDENCE_CONFIG[bet.mlConfidence as 'strong' | 'value' | 'longshot'].bg} ${ML_CONFIDENCE_CONFIG[bet.mlConfidence as 'strong' | 'value' | 'longshot'].border}`
                   : 'bg-slate-900/50 border-slate-700/30'
               }`}
             >
@@ -585,6 +645,8 @@ function UpcomingGameCard({ game }: { game: UpcomingGame }) {
                     <span className={`text-xs font-semibold shrink-0 ${liveStatus.isGood ? 'text-emerald-400' : 'text-red-400'}`}>
                       {liveStatus.label}
                     </span>
+                  ) : bet.market === 'moneyline' && bet.mlConfidence && bet.mlConfidence !== 'none' ? (
+                    <MLConfidenceBadge confidence={bet.mlConfidence} ev={bet.ev} />
                   ) : bet.ev !== undefined ? (
                     <span className="text-emerald-400 text-xs font-bold shrink-0">
                       +${bet.ev.toFixed(0)} EV
@@ -934,6 +996,7 @@ export default function PredictionsPage() {
             kelly_units: marketData.kelly_units,
             modelPct,
             impliedPct,
+            mlConfidence: market === 'moneyline' ? game.moneyline.confidence : undefined,
           };
 
           if (betResult === 'pending' || betResult === 'live') {
@@ -1053,7 +1116,10 @@ export default function PredictionsPage() {
             PREDICTIONS
           </h1>
           <p className="text-slate-500 text-sm">
-            Model bet tracking &nbsp;·&nbsp; <span className="text-amber-400">⚡</span> = top pick by edge %
+            Model bet tracking &nbsp;·&nbsp;
+            <span className="text-amber-300"> ★★</span> Strong &nbsp;
+            <span className="text-blue-300">★</span> Value &nbsp;
+            <span className="text-slate-500">◇</span> Longshot
           </p>
         </div>
 

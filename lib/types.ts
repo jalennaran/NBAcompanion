@@ -282,8 +282,8 @@ export interface GamePrediction {
     total:  { mean: number; p10: number; p25: number; p75: number; p90: number };
   };
   feature_importances?: {
-    margin_model: Array<{ feature: string; importance: number; value: number | null }>;
-    total_model:  Array<{ feature: string; importance: number; value: number | null }>;
+    margin_model: Array<{ feature: string; contribution: number; value: number | null }>;
+    total_model:  Array<{ feature: string; contribution: number; value: number | null }>;
   };
   spread: {
     line: number;
@@ -309,6 +309,7 @@ export interface GamePrediction {
     bet_side: string;
     bet_edge: number;
     bet_flag: boolean;
+    confidence?: 'strong' | 'value' | 'longshot' | 'none';
     ev?: number;
     kelly_units?: number;
   };
