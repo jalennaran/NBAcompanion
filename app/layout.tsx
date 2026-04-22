@@ -3,8 +3,8 @@ import './globals.css';
 import { Providers } from '@/components/providers';
 
 export const metadata: Metadata = {
-  title: 'NBA Companion',
-  description: 'Live NBA scores and game updates',
+  title: 'Sports Bet Companion',
+  description: 'Live game scores and updates for sports betting',
 };
 
 export default function RootLayout({
