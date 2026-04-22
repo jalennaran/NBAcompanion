@@ -57,28 +57,11 @@ function heatColor(t: number): [number, number, number, number] {
   return [r, g, b, a];
 }
 
-function buildDataUrl(shots: Array<[number, number]>): string | null {
-  if (shots.length === 0) return null;
-
-  const SVG_W = 94;
-  const SVG_H = 50;
-  const SCALE = 10; // pixels per SVG unit (= per foot)
-  const W = SVG_W * SCALE;
-  const H = SVG_H * SCALE;
-
-  const canvas = document.createElement('canvas');
-  canvas.width = W;
-  canvas.height = H;
-  const ctx = canvas.getContext('2d');
-  if (!ctx) return null;
-
-  // Gaussian KDE — bandwidth ≈ 4.5 ft
-  const SIGMA = 4.5 * SCALE;
+function buildDensity(shots: Array<[number, number]>, W: number, H: number, SIGMA: number): Float32Array {
   const density = new Float32Array(W * H);
-
   for (const [sx, sy] of shots) {
-    const px = sx * SCALE;
-    const py = sy * SCALE;
+    const px = sx * (W / 94);
+    const py = sy * (H / 50);
     const radius = Math.ceil(3 * SIGMA);
     const x0 = Math.max(0, Math.floor(px - radius));
     const x1 = Math.min(W - 1, Math.ceil(px + radius));
@@ -91,14 +74,21 @@ function buildDataUrl(shots: Array<[number, number]>): string | null {
       }
     }
   }
+  return density;
+}
 
+function renderDensityToCanvas(
+  ctx: CanvasRenderingContext2D,
+  density: Float32Array,
+  W: number,
+  H: number,
+): void {
   let maxD = 0;
   for (let i = 0; i < density.length; i++) if (density[i] > maxD) maxD = density[i];
-  if (maxD === 0) return null;
+  if (maxD === 0) return;
 
   const imgData = ctx.createImageData(W, H);
   for (let i = 0; i < density.length; i++) {
-    // sqrt curve: spreads colour across lower densities so the whole zone is visible
     const t = Math.sqrt(density[i] / maxD);
     const [r, g, b, alpha] = heatColor(t);
     imgData.data[i * 4] = r;
@@ -107,6 +97,48 @@ function buildDataUrl(shots: Array<[number, number]>): string | null {
     imgData.data[i * 4 + 3] = alpha;
   }
   ctx.putImageData(imgData, 0, 0);
+}
+
+function buildDataUrl(shots: Array<[number, number]>): string | null {
+  return buildDataUrlMulti([shots]);
+}
+
+/** Renders multiple shot groups each with independent normalization, then composites them. */
+function buildDataUrlMulti(shotGroups: Array<Array<[number, number]>>): string | null {
+  if (shotGroups.every((g) => g.length === 0)) return null;
+
+  const SVG_W = 94;
+  const SVG_H = 50;
+  const SCALE = 10;
+  const W = SVG_W * SCALE;
+  const H = SVG_H * SCALE;
+  const SIGMA = 4.5 * SCALE;
+
+  // Render each group to its own canvas with independent normalization
+  const groupCanvases = shotGroups
+    .filter((g) => g.length > 0)
+    .map((shots) => {
+      const canvas = document.createElement('canvas');
+      canvas.width = W;
+      canvas.height = H;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return null;
+      const density = buildDensity(shots, W, H, SIGMA);
+      renderDensityToCanvas(ctx, density, W, H);
+      return canvas;
+    })
+    .filter(Boolean) as HTMLCanvasElement[];
+
+  if (groupCanvases.length === 0) return null;
+
+  // Composite all groups onto a single canvas
+  const composite = document.createElement('canvas');
+  composite.width = W;
+  composite.height = H;
+  const cCtx = composite.getContext('2d')!;
+  for (const gc of groupCanvases) {
+    cCtx.drawImage(gc, 0, 0);
+  }
 
   // Light blur for a smoother look
   const blurCanvas = document.createElement('canvas');
@@ -114,7 +146,7 @@ function buildDataUrl(shots: Array<[number, number]>): string | null {
   blurCanvas.height = H;
   const bCtx = blurCanvas.getContext('2d')!;
   bCtx.filter = 'blur(5px)';
-  bCtx.drawImage(canvas, 0, 0);
+  bCtx.drawImage(composite, 0, 0);
 
   return blurCanvas.toDataURL('image/png');
 }
@@ -131,7 +163,8 @@ export function ShotHeatmapLayer({ plays, homeTeamId, teamFilter }: Props) {
   const [dataUrl, setDataUrl] = useState<string | null>(null);
 
   useEffect(() => {
-    const shots: Array<[number, number]> = [];
+    const homeShots: Array<[number, number]> = [];
+    const awayShots: Array<[number, number]> = [];
 
     for (const p of plays) {
       if (!p.shootingPlay && !isFreeThrow(p)) continue;
@@ -147,10 +180,19 @@ export function ShotHeatmapLayer({ plays, homeTeamId, teamFilter }: Props) {
           ? p.coordinate!
           : AT_BASKET_COORD;
 
-      shots.push(espnToSvg(coord.x, coord.y, isHome));
+      const svgCoord = espnToSvg(coord.x, coord.y, isHome);
+      if (isHome) homeShots.push(svgCoord);
+      else awayShots.push(svgCoord);
     }
 
-    setDataUrl(buildDataUrl(shots));
+    // Use independent normalization per team so neither team's density scale
+    // is skewed by the other team's shot volume.
+    if (teamFilter === 'both') {
+      setDataUrl(buildDataUrlMulti([awayShots, homeShots]));
+    } else {
+      const shots = teamFilter === 'home' ? homeShots : awayShots;
+      setDataUrl(buildDataUrl(shots));
+    }
   }, [plays, homeTeamId, teamFilter]);
 
   if (!dataUrl) return null;

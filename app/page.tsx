@@ -2,11 +2,121 @@
 
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { fetchScoreboard } from '@/lib/api';
+import { fetchScoreboard, fetchPredictions } from '@/lib/api';
 import Image from 'next/image';
 import Link from 'next/link';
 import TopPerformers from '@/components/TopPerformers';
 import PreGameLeaders from '@/components/PreGameLeaders';
+import type { GamePrediction } from '@/lib/types';
+
+const ESPN_TO_PRED: Record<string, string> = {
+  GS: 'GSW', NO: 'NOP', NY: 'NYK', SA: 'SAS', UTAH: 'UTA', WSH: 'WAS',
+};
+
+function normalizeAbbr(abbr: string): string {
+  return ESPN_TO_PRED[abbr] ?? abbr;
+}
+
+function projectTotal(currentTotal: number, period: number, clockSeconds: number): number {
+  const minutesElapsed =
+    period <= 4
+      ? (period - 1) * 12 + (12 - clockSeconds / 60)
+      : 48 + (period - 5) * 5 + (5 - clockSeconds / 60);
+  if (minutesElapsed <= 0) return 0;
+  const totalMinutes = period <= 4 ? 48 : 48 + (period - 4) * 5;
+  return (currentTotal / minutesElapsed) * totalMinutes;
+}
+
+function parseDisplayClock(displayClock: string): number {
+  const parts = (displayClock ?? '').split(':');
+  if (parts.length === 2) return parseInt(parts[0]) * 60 + parseInt(parts[1]);
+  return 0;
+}
+
+type BetMarket = 'moneyline' | 'spread' | 'over_under';
+
+const MARKET_LABEL: Record<BetMarket, string> = {
+  moneyline: 'ML',
+  spread: 'SPR',
+  over_under: 'O/U',
+};
+
+const MARKET_STYLES: Record<BetMarket, string> = {
+  moneyline: 'bg-blue-900/50 text-blue-300 border-blue-700/50',
+  spread: 'bg-purple-900/50 text-purple-300 border-purple-700/50',
+  over_under: 'bg-teal-900/50 text-teal-300 border-teal-700/50',
+};
+
+function pickLabel(pred: GamePrediction, market: BetMarket): string {
+  if (market === 'moneyline') {
+    const side = pred.moneyline.bet_side;
+    const team = side === 'home' ? pred.home_team : pred.away_team;
+    const odds = side === 'home' ? pred.moneyline.ml_home : pred.moneyline.ml_away;
+    return `${team} (${odds > 0 ? '+' : ''}${odds})`;
+  }
+  if (market === 'spread') {
+    if (pred.spread.bet_side === 'home') {
+      return `${pred.home_team} ${pred.spread.line > 0 ? '+' : ''}${pred.spread.line}`;
+    }
+    const awayLine = -pred.spread.line;
+    return `${pred.away_team} ${awayLine > 0 ? '+' : ''}${awayLine}`;
+  }
+  return `${pred.over_under.bet_side === 'over' ? 'Over' : 'Under'} ${pred.over_under.line}`;
+}
+
+function evaluateBet(
+  pred: GamePrediction,
+  market: BetMarket,
+  homeScore: number,
+  awayScore: number,
+): 'win' | 'loss' | 'push' {
+  if (market === 'moneyline') {
+    if (pred.moneyline.bet_side === 'home')
+      return homeScore > awayScore ? 'win' : homeScore < awayScore ? 'loss' : 'push';
+    return awayScore > homeScore ? 'win' : awayScore < homeScore ? 'loss' : 'push';
+  }
+  if (market === 'spread') {
+    const adjusted = homeScore - awayScore + pred.spread.line;
+    if (pred.spread.bet_side === 'home') return adjusted > 0 ? 'win' : adjusted < 0 ? 'loss' : 'push';
+    return adjusted < 0 ? 'win' : adjusted > 0 ? 'loss' : 'push';
+  }
+  const total = homeScore + awayScore;
+  if (pred.over_under.bet_side === 'over')
+    return total > pred.over_under.line ? 'win' : total < pred.over_under.line ? 'loss' : 'push';
+  return total < pred.over_under.line ? 'win' : total > pred.over_under.line ? 'loss' : 'push';
+}
+
+function getLiveStatus(
+  pred: GamePrediction,
+  market: BetMarket,
+  homeScore: number,
+  awayScore: number,
+  period: number,
+  clockSeconds: number,
+): { label: string; isGood: boolean } | null {
+  if (market === 'moneyline') {
+    if (homeScore === awayScore) return { label: 'Tied', isGood: false };
+    const betHome = pred.moneyline.bet_side === 'home';
+    const winning = betHome ? homeScore > awayScore : awayScore > homeScore;
+    return { label: winning ? 'Winning' : 'Losing', isGood: winning };
+  }
+  if (market === 'spread') {
+    const adjusted = homeScore - awayScore + pred.spread.line;
+    if (pred.spread.bet_side === 'home') {
+      return adjusted > 0
+        ? { label: `Covering by ${adjusted.toFixed(1)}`, isGood: true }
+        : { label: `Down ${Math.abs(adjusted).toFixed(1)}`, isGood: false };
+    } else {
+      return adjusted < 0
+        ? { label: `Covering by ${Math.abs(adjusted).toFixed(1)}`, isGood: true }
+        : { label: `Down ${adjusted.toFixed(1)}`, isGood: false };
+    }
+  }
+  if (period == null || clockSeconds == null) return null;
+  const projected = projectTotal(homeScore + awayScore, period, clockSeconds);
+  const onPace = pred.over_under.bet_side === 'over' ? projected > pred.over_under.line : projected < pred.over_under.line;
+  return { label: `Pace: ${Math.round(projected)} pts`, isGood: onPace };
+}
 
 function PredictionsNavLink() {
   return (
@@ -41,6 +151,17 @@ export default function Home() {
   const { data, isLoading, error } = useQuery({
     queryKey: ['scoreboard', dateParam ?? 'today'],
     queryFn: () => fetchScoreboard(dateParam),
+    refetchInterval: (query) =>
+      query.state.data?.events?.some((e: any) => e.status.type.state === 'in')
+        ? 2_500
+        : 30_000,
+    staleTime: 1_000,
+  });
+
+  const { data: predictionsData } = useQuery({
+    queryKey: ['predictions'],
+    queryFn: fetchPredictions,
+    staleTime: 5 * 60 * 1000,
   });
 
   const shiftDate = (days: number) => {
@@ -154,6 +275,13 @@ export default function Home() {
                 ?.filter((name) => name && name !== 'NBA League Pass')
                 .join(', ');
               
+              // Match prediction for this game
+              const allPredictions = predictionsData?.flatMap(f => f.games) ?? [];
+              const prediction = allPredictions.find(p =>
+                normalizeAbbr(homeTeam?.team.abbreviation ?? '') === p.home_team &&
+                normalizeAbbr(awayTeam?.team.abbreviation ?? '') === p.away_team
+              ) ?? null;
+
               // Calculate spread coverage for finished games
               let spreadCoverage = null;
               if (isFinal && odds && homeTeam && awayTeam) {
@@ -294,6 +422,62 @@ export default function Home() {
                     )}
                     
                   </div>
+
+                  {/* Model Picks - show for any game with a prediction */}
+                  {prediction && (
+                    <div className="mt-4 space-y-1.5">
+                      {(['moneyline', 'spread', 'over_under'] as const).map((market) => {
+                        const label = pickLabel(prediction, market);
+                        const homeScore = parseInt(homeTeam?.score ?? '0');
+                        const awayScore = parseInt(awayTeam?.score ?? '0');
+                        const liveStatus = isLive
+                          ? getLiveStatus(prediction, market, homeScore, awayScore, game.status.period, game.status.clock)
+                          : null;
+                        const finalResult = isFinal
+                          ? evaluateBet(prediction, market, homeScore, awayScore)
+                          : null;
+                        return (
+                          <div
+                            key={market}
+                            className={`flex items-center gap-2.5 px-3 py-2 rounded-xl border ${
+                              liveStatus
+                                ? liveStatus.isGood
+                                  ? 'bg-emerald-950/25 border-emerald-500/25'
+                                  : 'bg-red-950/25 border-red-500/25'
+                                : finalResult === 'win'
+                                ? 'bg-emerald-950/25 border-emerald-500/25'
+                                : finalResult === 'loss'
+                                ? 'bg-red-950/25 border-red-500/25'
+                                : 'bg-slate-900/30 border-slate-700/20'
+                            }`}
+                          >
+                            <span className={`px-2 py-0.5 rounded-md text-xs font-bold border shrink-0 ${MARKET_STYLES[market]}`}>
+                              {MARKET_LABEL[market]}
+                            </span>
+                            <span className="text-slate-200 text-sm font-medium flex-1 min-w-0 truncate">
+                              {label}
+                            </span>
+                            {liveStatus && (
+                              <span className={`text-xs font-semibold shrink-0 ${liveStatus.isGood ? 'text-emerald-400' : 'text-red-400'}`}>
+                                {liveStatus.label}
+                              </span>
+                            )}
+                            {finalResult && (
+                              <span className={`text-xs font-bold shrink-0 px-1.5 py-0.5 rounded ${
+                                finalResult === 'win'
+                                  ? 'text-emerald-400 bg-emerald-500/15'
+                                  : finalResult === 'loss'
+                                  ? 'text-red-400 bg-red-500/15'
+                                  : 'text-slate-400 bg-slate-600/20'
+                              }`}>
+                                {finalResult === 'win' ? 'HIT' : finalResult === 'loss' ? 'MISS' : 'PUSH'}
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
 
                   {/* Top Performers - Only show for live or completed games */}
                   {(isLive || isFinal) && (

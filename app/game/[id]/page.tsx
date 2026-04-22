@@ -10,6 +10,78 @@ import CourtStrip from '@/components/game/CourtStrip';
 import type { OnCourtPlayer } from '@/components/game/CourtStrip';
 import { ThreeCourtScene } from '@/components/three-court/ThreeCourtScene';
 
+function parseDisplayClock(displayClock: string): number {
+  const parts = (displayClock ?? '').split(':');
+  if (parts.length === 2) return parseInt(parts[0]) * 60 + parseInt(parts[1]);
+  return 0;
+}
+
+type BetMarket = 'moneyline' | 'spread' | 'over_under';
+
+const MARKET_LABEL: Record<BetMarket, string> = {
+  moneyline: 'ML', spread: 'SPR', over_under: 'O/U',
+};
+const MARKET_STYLES: Record<BetMarket, string> = {
+  moneyline: 'bg-blue-900/50 text-blue-300 border-blue-700/50',
+  spread: 'bg-purple-900/50 text-purple-300 border-purple-700/50',
+  over_under: 'bg-teal-900/50 text-teal-300 border-teal-700/50',
+};
+
+function betPickLabel(pred: GamePrediction, market: BetMarket): string {
+  if (market === 'moneyline') {
+    const side = pred.moneyline.bet_side;
+    const team = side === 'home' ? pred.home_team : pred.away_team;
+    const odds = side === 'home' ? pred.moneyline.ml_home : pred.moneyline.ml_away;
+    return `${team} (${odds > 0 ? '+' : ''}${odds})`;
+  }
+  if (market === 'spread') {
+    if (pred.spread.bet_side === 'home')
+      return `${pred.home_team} ${pred.spread.line > 0 ? '+' : ''}${pred.spread.line}`;
+    const awayLine = -pred.spread.line;
+    return `${pred.away_team} ${awayLine > 0 ? '+' : ''}${awayLine}`;
+  }
+  return `${pred.over_under.bet_side === 'over' ? 'Over' : 'Under'} ${pred.over_under.line}`;
+}
+
+function betEvaluate(pred: GamePrediction, market: BetMarket, h: number, a: number): 'win' | 'loss' | 'push' {
+  if (market === 'moneyline') {
+    if (pred.moneyline.bet_side === 'home') return h > a ? 'win' : h < a ? 'loss' : 'push';
+    return a > h ? 'win' : a < h ? 'loss' : 'push';
+  }
+  if (market === 'spread') {
+    const adj = h - a + pred.spread.line;
+    if (pred.spread.bet_side === 'home') return adj > 0 ? 'win' : adj < 0 ? 'loss' : 'push';
+    return adj < 0 ? 'win' : adj > 0 ? 'loss' : 'push';
+  }
+  const total = h + a;
+  if (pred.over_under.bet_side === 'over') return total > pred.over_under.line ? 'win' : total < pred.over_under.line ? 'loss' : 'push';
+  return total < pred.over_under.line ? 'win' : total > pred.over_under.line ? 'loss' : 'push';
+}
+
+function betLiveStatus(
+  pred: GamePrediction, market: BetMarket,
+  h: number, a: number, period: number, clockSecs: number,
+): { label: string; isGood: boolean } | null {
+  if (market === 'moneyline') {
+    if (h === a) return { label: 'Tied', isGood: false };
+    const winning = pred.moneyline.bet_side === 'home' ? h > a : a > h;
+    return { label: winning ? 'Winning' : 'Losing', isGood: winning };
+  }
+  if (market === 'spread') {
+    const adj = h - a + pred.spread.line;
+    if (pred.spread.bet_side === 'home')
+      return adj > 0 ? { label: `Covering by ${adj.toFixed(1)}`, isGood: true } : { label: `Down ${Math.abs(adj).toFixed(1)}`, isGood: false };
+    return adj < 0 ? { label: `Covering by ${Math.abs(adj).toFixed(1)}`, isGood: true } : { label: `Down ${adj.toFixed(1)}`, isGood: false };
+  }
+  if (period == null || clockSecs == null) return null;
+  const elapsed = period <= 4 ? (period - 1) * 12 + (12 - clockSecs / 60) : 48 + (period - 5) * 5 + (5 - clockSecs / 60);
+  if (elapsed <= 0) return null;
+  const totalMins = period <= 4 ? 48 : 48 + (period - 4) * 5;
+  const projected = Math.round(((h + a) / elapsed) * totalMins);
+  const onPace = pred.over_under.bet_side === 'over' ? projected > pred.over_under.line : projected < pred.over_under.line;
+  return { label: `Pace: ${projected} pts`, isGood: onPace };
+}
+
 export default function GamePage() {
   const params = useParams();
   const gameId = params.id as string;
@@ -251,6 +323,54 @@ export default function GamePage() {
           isLive={isLive}
           isFinal={isFinal}
         />
+
+        {/* Model Picks — bet rows under scoreboard */}
+        {gamePrediction && (() => {
+          const h = parseInt(homeCompetitor?.score ?? '0');
+          const a = parseInt(awayCompetitor?.score ?? '0');
+          const period = gameStatus?.period ?? 1;
+          const clockSecs = parseDisplayClock(gameStatus?.displayClock ?? '');
+          return (
+            <div className="mt-4 grid grid-cols-3 gap-2">
+              {(['moneyline', 'spread', 'over_under'] as const).map((market) => {
+                const label = betPickLabel(gamePrediction, market);
+                const liveStatus = isLive ? betLiveStatus(gamePrediction, market, h, a, period, clockSecs) : null;
+                const finalResult = isFinal ? betEvaluate(gamePrediction, market, h, a) : null;
+                return (
+                  <div
+                    key={market}
+                    className={`flex flex-col gap-1.5 px-3 py-2.5 rounded-xl border ${
+                      liveStatus
+                        ? liveStatus.isGood ? 'bg-emerald-950/25 border-emerald-500/25' : 'bg-red-950/25 border-red-500/25'
+                        : finalResult === 'win' ? 'bg-emerald-950/25 border-emerald-500/25'
+                        : finalResult === 'loss' ? 'bg-red-950/25 border-red-500/25'
+                        : 'bg-slate-900/40 border-slate-700/30'
+                    }`}
+                  >
+                    <span className={`self-start px-2 py-0.5 rounded-md text-xs font-bold border ${MARKET_STYLES[market]}`}>
+                      {MARKET_LABEL[market]}
+                    </span>
+                    <span className="text-slate-200 text-sm font-medium leading-tight">{label}</span>
+                    {liveStatus && (
+                      <span className={`text-xs font-semibold ${liveStatus.isGood ? 'text-emerald-400' : 'text-red-400'}`}>
+                        {liveStatus.label}
+                      </span>
+                    )}
+                    {finalResult && (
+                      <span className={`self-start text-xs font-bold px-1.5 py-0.5 rounded ${
+                        finalResult === 'win' ? 'text-emerald-400 bg-emerald-500/15'
+                        : finalResult === 'loss' ? 'text-red-400 bg-red-500/15'
+                        : 'text-slate-400 bg-slate-600/20'
+                      }`}>
+                        {finalResult === 'win' ? 'HIT' : finalResult === 'loss' ? 'MISS' : 'PUSH'}
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })()}
 
         {/* Court visualization strip */}
         <CourtStrip

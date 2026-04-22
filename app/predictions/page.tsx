@@ -279,7 +279,7 @@ function PastBetRow({ bet }: { bet: EvaluatedBet }) {
           {bet.actualAway}–{bet.actualHome}
         </div>
       )}
-      <div className="shrink-0 w-16 text-right">
+      <div className="shrink-0 flex flex-col items-end gap-0.5">
         {bet.result === 'win' && (
           <span className="px-2 py-0.5 rounded-lg text-xs font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">
             HIT
@@ -298,6 +298,11 @@ function PastBetRow({ bet }: { bet: EvaluatedBet }) {
         {bet.result === 'live' && (
           <span className="px-2 py-0.5 rounded-lg text-xs font-bold bg-amber-500/20 text-amber-400 border border-amber-500/40 animate-pulse">
             LIVE
+          </span>
+        )}
+        {(bet.result === 'win' || bet.result === 'loss') && (
+          <span className={`text-xs font-semibold tabular-nums ${bet.result === 'win' ? 'text-emerald-500' : 'text-red-500'}`}>
+            {bet.result === 'win' ? '+' : ''}${Math.abs(bet.profit).toFixed(0)}
           </span>
         )}
       </div>
@@ -733,8 +738,13 @@ export default function PredictionsPage() {
     queries: allRelevantDates.map(date => ({
       queryKey: ['scoreboard', date.replace(/-/g, '')],
       queryFn: () => fetchScoreboard(date.replace(/-/g, '')),
-      staleTime: date < today ? Infinity : 30_000,
-      refetchInterval: date === today ? 30_000 : (false as const),
+      staleTime: date < today ? Infinity : 1_000,
+      refetchInterval: date < today
+        ? (false as const)
+        : (query: any) =>
+            query.state.data?.events?.some((e: any) => e.status.type.state === 'in')
+              ? 2_500
+              : 30_000,
     })),
   });
 

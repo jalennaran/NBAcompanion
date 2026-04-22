@@ -44,7 +44,7 @@ export default function CourtStrip({
   homeTeamId = '',
 }: CourtStripProps) {
   const [logoFailed, setLogoFailed] = useState(!homeTeamLogoUrl);
-  const [heatmapFilter, setHeatmapFilter] = useState<HeatmapTeamFilter | null>(null);
+  const [heatmapFilter, setHeatmapFilter] = useState<HeatmapTeamFilter | null>('both');
   const svgId = useId().replace(/:/g, '');
 
   useEffect(() => {
