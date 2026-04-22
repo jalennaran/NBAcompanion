@@ -277,6 +277,14 @@ export interface GamePrediction {
   away_team_full: string;
   pred_home_score: number;
   pred_away_score: number;
+  simulation?: {
+    margin: { mean: number; p10: number; p25: number; p75: number; p90: number };
+    total:  { mean: number; p10: number; p25: number; p75: number; p90: number };
+  };
+  feature_importances?: {
+    margin_model: Array<{ feature: string; importance: number; value: number | null }>;
+    total_model:  Array<{ feature: string; importance: number; value: number | null }>;
+  };
   spread: {
     line: number;
     predicted_margin: number;
@@ -286,6 +294,8 @@ export interface GamePrediction {
     bet_side: string;
     bet_edge: number;
     bet_flag: boolean;
+    ev?: number;
+    kelly_units?: number;
   };
   moneyline: {
     ml_home: number;
@@ -299,6 +309,8 @@ export interface GamePrediction {
     bet_side: string;
     bet_edge: number;
     bet_flag: boolean;
+    ev?: number;
+    kelly_units?: number;
   };
   over_under: {
     line: number;
@@ -309,6 +321,8 @@ export interface GamePrediction {
     bet_side: string;
     bet_edge: number;
     bet_flag: boolean;
+    ev?: number;
+    kelly_units?: number;
   };
 }
 

@@ -8,6 +8,20 @@ import Link from 'next/link';
 import TopPerformers from '@/components/TopPerformers';
 import PreGameLeaders from '@/components/PreGameLeaders';
 
+function PredictionsNavLink() {
+  return (
+    <Link
+      href="/predictions"
+      className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-orange-500/10 to-purple-600/10 border border-orange-500/25 hover:border-orange-400/50 hover:from-orange-500/20 hover:to-purple-600/20 transition-all text-orange-300 hover:text-orange-200 font-semibold text-sm shrink-0"
+    >
+      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+      </svg>
+      Predictions
+    </Link>
+  );
+}
+
 function formatDateParam(date: Date): string {
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, '0');
@@ -72,9 +86,14 @@ export default function Home() {
     <main className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-6 md:p-12">
       <div className="max-w-7xl mx-auto">
         <div className="mb-12">
-          <h1 className="text-5xl md:text-6xl font-black mb-3 bg-gradient-to-r from-orange-400 via-red-500 to-purple-600 bg-clip-text text-transparent">
-            NBA {isToday ? 'LIVE' : 'SCORES'}
-          </h1>
+          <div className="flex items-start justify-between gap-4">
+            <h1 className="text-5xl md:text-6xl font-black mb-3 bg-gradient-to-r from-orange-400 via-red-500 to-purple-600 bg-clip-text text-transparent">
+              NBA {isToday ? 'LIVE' : 'SCORES'}
+            </h1>
+            <div className="mt-2">
+              <PredictionsNavLink />
+            </div>
+          </div>
           <div className="flex items-center gap-4 mt-4">
             <button
               onClick={() => shiftDate(-1)}
