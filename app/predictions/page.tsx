@@ -5,6 +5,10 @@ import { useQuery, useQueries } from '@tanstack/react-query';
 import { fetchPredictions, fetchScoreboard } from '@/lib/api';
 import Link from 'next/link';
 import type { GamePrediction } from '@/lib/types';
+import {
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
+  ResponsiveContainer, ReferenceLine,
+} from 'recharts';
 
 const ESPN_TO_PRED: Record<string, string> = {
   GS: 'GSW', NO: 'NOP', NY: 'NYK', SA: 'SAS', UTAH: 'UTA', WSH: 'WAS',
@@ -620,9 +624,77 @@ function UpcomingGameCard({ game }: { game: UpcomingGame }) {
 }
 
 interface ProfitSummary { netProfit: number; wagered: number; roi: number }
+interface DailyProfitPoint { date: string; cumulative: number; daily: number }
+
+function ProfitChart({ data }: { data: DailyProfitPoint[] }) {
+  const isPositive = data.length === 0 || data[data.length - 1].cumulative >= 0;
+  const color = isPositive ? '#34d399' : '#f87171';
+  const min = Math.min(0, ...data.map(d => d.cumulative));
+  const max = Math.max(0, ...data.map(d => d.cumulative));
+
+  const CustomTooltip = ({ active, payload, label }: any) => {
+    if (!active || !payload?.length) return null;
+    const p = payload[0].payload as DailyProfitPoint;
+    const dailySign = p.daily >= 0 ? '+' : '';
+    return (
+      <div className="bg-slate-800/95 border border-slate-600/60 rounded-xl px-3 py-2 shadow-xl backdrop-blur-sm">
+        <div className="text-slate-400 text-xs mb-1">{label}</div>
+        <div className={`text-sm font-black ${p.cumulative >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+          {p.cumulative >= 0 ? '+' : ''}${p.cumulative.toFixed(0)}
+        </div>
+        <div className={`text-xs font-medium mt-0.5 ${p.daily >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
+          {dailySign}${p.daily.toFixed(0)} today
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="mt-5 pt-5 border-t border-slate-700/50">
+      <div className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-3">Cumulative P&amp;L</div>
+      <ResponsiveContainer width="100%" height={120}>
+        <AreaChart data={data} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+          <defs>
+            <linearGradient id="profitGradient" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor={color} stopOpacity={0.3} />
+              <stop offset="95%" stopColor={color} stopOpacity={0} />
+            </linearGradient>
+          </defs>
+          <CartesianGrid strokeDasharray="3 3" stroke="#334155" strokeOpacity={0.4} vertical={false} />
+          <XAxis
+            dataKey="date"
+            tick={{ fill: '#64748b', fontSize: 10, fontWeight: 600 }}
+            axisLine={false}
+            tickLine={false}
+            interval="preserveStartEnd"
+          />
+          <YAxis
+            tick={{ fill: '#64748b', fontSize: 10 }}
+            axisLine={false}
+            tickLine={false}
+            tickFormatter={(v) => `$${v >= 0 ? '+' : ''}${v}`}
+            domain={[Math.floor(min * 1.1), Math.ceil(max * 1.1)]}
+            width={52}
+          />
+          <Tooltip content={<CustomTooltip />} cursor={{ stroke: '#64748b', strokeWidth: 1, strokeDasharray: '4 4' }} />
+          <ReferenceLine y={0} stroke="#475569" strokeWidth={1} strokeDasharray="4 4" />
+          <Area
+            type="monotone"
+            dataKey="cumulative"
+            stroke={color}
+            strokeWidth={2}
+            fill="url(#profitGradient)"
+            dot={false}
+            activeDot={{ r: 4, fill: color, strokeWidth: 0 }}
+          />
+        </AreaChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
 
 function ProfitSection({
-  all, flagged, byMarket,
+  all, flagged, byMarket, dailyData,
 }: {
   all: ProfitSummary;
   flagged: ProfitSummary;
@@ -631,6 +703,7 @@ function ProfitSection({
     spread: ProfitSummary; spreadFlagged: ProfitSummary;
     over_under: ProfitSummary; overUnderFlagged: ProfitSummary;
   };
+  dailyData: DailyProfitPoint[];
 }) {
   const fmt = (n: number) =>
     `${n >= 0 ? '+' : ''}$${Math.abs(n).toFixed(2)}`;
@@ -713,6 +786,8 @@ function ProfitSection({
           </div>
         ))}
       </div>
+
+      {dailyData.length > 1 && <ProfitChart data={dailyData} />}
     </div>
   );
 }
@@ -931,6 +1006,23 @@ export default function PredictionsPage() {
     };
   }, [pastBets]);
 
+  const dailyProfitData = useMemo((): DailyProfitPoint[] => {
+    const settled = pastBets.filter(b => b.result === 'win' || b.result === 'loss' || b.result === 'push');
+    const byDate = new Map<string, number>();
+    for (const bet of settled) {
+      byDate.set(bet.game_date, (byDate.get(bet.game_date) ?? 0) + bet.profit);
+    }
+    const dates = [...byDate.keys()].sort();
+    let running = 0;
+    return dates.map(date => {
+      const daily = byDate.get(date)!;
+      running += daily;
+      const [, m, d] = date.split('-').map(Number);
+      const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      return { date: `${months[m - 1]} ${d}`, cumulative: Math.round(running * 100) / 100, daily: Math.round(daily * 100) / 100 };
+    });
+  }, [pastBets]);
+
   const filteredPastBets = useMemo(() => {
     if (filter === 'wins') return pastBets.filter(b => b.result === 'win');
     if (filter === 'losses') return pastBets.filter(b => b.result === 'loss');
@@ -980,6 +1072,7 @@ export default function PredictionsPage() {
             all={theoreticalProfit.all}
             flagged={theoreticalProfit.flagged}
             byMarket={theoreticalProfit.byMarket}
+            dailyData={dailyProfitData}
           />
         )}
 

@@ -2,7 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { fetchGameSummary, fetchTeamRoster, fetchPredictions } from '@/lib/api';
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
 import type { Competitor, Play, TeamBoxScore, GamePrediction } from '@/lib/types';
@@ -85,6 +85,8 @@ function betLiveStatus(
 export default function GamePage() {
   const params = useParams();
   const gameId = params.id as string;
+  const searchParams = useSearchParams();
+  const dateParam = searchParams.get('date') ?? undefined;
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['gameSummary', gameId],
@@ -195,7 +197,7 @@ export default function GamePage() {
     return (
       <main className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-4 md:p-8">
         <div className="max-w-[1600px] mx-auto">
-          <BackLink />
+          <BackLink date={dateParam} />
           <div className="flex items-center justify-center h-64">
             <div className="animate-pulse text-slate-400 text-lg">Loading game data...</div>
           </div>
@@ -208,7 +210,7 @@ export default function GamePage() {
     return (
       <main className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-4 md:p-8">
         <div className="max-w-[1600px] mx-auto">
-          <BackLink />
+          <BackLink date={dateParam} />
           <p className="text-red-400 bg-red-950/30 backdrop-blur-sm p-6 rounded-2xl border border-red-900/50">
             Error loading game data: {error?.message ?? 'Unknown error'}
           </p>
@@ -313,7 +315,7 @@ export default function GamePage() {
   return (
     <main className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-4 md:p-8">
       <div className="max-w-[1600px] mx-auto">
-        <BackLink />
+        <BackLink date={dateParam} />
 
         {/* Quarter-by-quarter scoring breakdown */}
         <ScoreHeader
@@ -503,10 +505,10 @@ export default function GamePage() {
 
 /* ─── Back Link ──────────────────────────────────────────────────────── */
 
-function BackLink() {
+function BackLink({ date }: { date?: string }) {
   return (
     <Link
-      href="/"
+      href={date ? `/?date=${date}` : '/'}
       className="inline-flex items-center gap-2 text-slate-400 hover:text-slate-200 transition-colors mb-6 text-sm"
     >
       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">

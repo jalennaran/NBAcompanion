@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import { fetchScoreboard, fetchPredictions } from '@/lib/api';
 import Image from 'next/image';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import TopPerformers from '@/components/TopPerformers';
 import PreGameLeaders from '@/components/PreGameLeaders';
 import type { GamePrediction } from '@/lib/types';
@@ -144,9 +145,20 @@ function isSameDay(a: Date, b: Date): boolean {
 }
 
 export default function Home() {
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const searchParams = useSearchParams();
+  const [selectedDate, setSelectedDate] = useState<Date>(() => {
+    const dateStr = searchParams.get('date');
+    if (dateStr && /^\d{8}$/.test(dateStr)) {
+      const y = parseInt(dateStr.slice(0, 4));
+      const m = parseInt(dateStr.slice(4, 6)) - 1;
+      const d = parseInt(dateStr.slice(6, 8));
+      return new Date(y, m, d);
+    }
+    return new Date();
+  });
   const isToday = isSameDay(selectedDate, new Date());
   const dateParam = isToday ? undefined : formatDateParam(selectedDate);
+  const selectedDateStr = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}`;
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['scoreboard', dateParam ?? 'today'],
@@ -278,6 +290,7 @@ export default function Home() {
               // Match prediction for this game
               const allPredictions = predictionsData?.flatMap(f => f.games) ?? [];
               const prediction = allPredictions.find(p =>
+                p.game_date === selectedDateStr &&
                 normalizeAbbr(homeTeam?.team.abbreviation ?? '') === p.home_team &&
                 normalizeAbbr(awayTeam?.team.abbreviation ?? '') === p.away_team
               ) ?? null;
@@ -301,7 +314,7 @@ export default function Home() {
               
               return (
                 <Link
-                  href={`/game/${game.id}`}
+                  href={`/game/${game.id}?date=${formatDateParam(selectedDate)}`}
                   key={game.id}
                   className="group relative bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-xl rounded-3xl p-6 border border-slate-700/50 hover:border-slate-600/50 transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl hover:shadow-purple-900/20 block cursor-pointer"
                 >
