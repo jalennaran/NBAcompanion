@@ -5,6 +5,7 @@ import { useQuery, useQueries } from '@tanstack/react-query';
 import { fetchPredictions, fetchScoreboard } from '@/lib/api';
 import Link from 'next/link';
 import type { GamePrediction } from '@/lib/types';
+import TeamLink from '@/components/modals/TeamLink';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, ReferenceLine,
@@ -53,6 +54,8 @@ interface EvaluatedBet {
   modelPct?: number;
   impliedPct?: number;
   mlConfidence?: 'strong' | 'value' | 'longshot' | 'none';
+  homeTeamId?: string;
+  awayTeamId?: string;
 }
 
 interface UpcomingGame {
@@ -270,7 +273,13 @@ function PastBetRow({ bet }: { bet: EvaluatedBet }) {
         {formatShortDate(bet.game_date)}
       </div>
       <div className="text-slate-300 text-sm font-semibold w-24 shrink-0">
-        {bet.away_team} @ {bet.home_team}
+        {bet.awayTeamId ? (
+          <TeamLink teamId={bet.awayTeamId} className="text-slate-300">{bet.away_team}</TeamLink>
+        ) : bet.away_team}
+        {' @ '}
+        {bet.homeTeamId ? (
+          <TeamLink teamId={bet.homeTeamId} className="text-slate-300">{bet.home_team}</TeamLink>
+        ) : bet.home_team}
       </div>
       <div className="shrink-0">
         <MarketBadge market={bet.market} />
@@ -564,11 +573,19 @@ function UpcomingGameCard({ game }: { game: UpcomingGame }) {
         <div className="flex items-center gap-3 mb-3 px-3 py-2.5 rounded-xl bg-red-950/20 border border-red-500/20">
           <div className="flex-1">
             <div className="flex items-center justify-between">
-              <span className="text-slate-300 text-sm font-semibold">{first.away_team}</span>
+              {first.awayTeamId ? (
+                <TeamLink teamId={first.awayTeamId} className="text-slate-300 text-sm font-semibold">{first.away_team}</TeamLink>
+              ) : (
+                <span className="text-slate-300 text-sm font-semibold">{first.away_team}</span>
+              )}
               <span className="text-white text-2xl font-black tabular-nums">{awayScore}</span>
             </div>
             <div className="flex items-center justify-between mt-1">
-              <span className="text-slate-300 text-sm font-semibold">{first.home_team}</span>
+              {first.homeTeamId ? (
+                <TeamLink teamId={first.homeTeamId} className="text-slate-300 text-sm font-semibold">{first.home_team}</TeamLink>
+              ) : (
+                <span className="text-slate-300 text-sm font-semibold">{first.home_team}</span>
+              )}
               <span className="text-white text-2xl font-black tabular-nums">{homeScore}</span>
             </div>
           </div>
@@ -890,6 +907,7 @@ export default function PredictionsPage() {
       homeScore: number; awayScore: number;
       isCompleted: boolean; isLive: boolean;
       period: number; clockSeconds: number; statusDetail: string;
+      homeTeamId: string; awayTeamId: string;
     };
     const map: Record<string, Record<string, GameResult>> = {};
     allRelevantDates.forEach((date, i) => {
@@ -910,6 +928,8 @@ export default function PredictionsPage() {
           period: event.status.period ?? 0,
           clockSeconds: parseDisplayClock(event.status.displayClock ?? ''),
           statusDetail: event.status.type.shortDetail ?? '',
+          homeTeamId: home.team.id ?? '',
+          awayTeamId: away.team.id ?? '',
         };
       }
     });
@@ -997,6 +1017,8 @@ export default function PredictionsPage() {
             modelPct,
             impliedPct,
             mlConfidence: market === 'moneyline' ? game.moneyline.confidence : undefined,
+            homeTeamId: result?.homeTeamId,
+            awayTeamId: result?.awayTeamId,
           };
 
           if (betResult === 'pending' || betResult === 'live') {

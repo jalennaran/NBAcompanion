@@ -24,7 +24,6 @@ function isFreeThrow(p: Play): boolean {
   return /free.?throw/i.test(p.type?.text ?? '');
 }
 
-const FT_COORD = { x: 25, y: 13.75 };
 const AT_BASKET_COORD = { x: 25, y: 0 };
 
 /** ESPN shot coord → CourtStrip SVG [x, y] */
@@ -167,18 +166,15 @@ export function ShotHeatmapLayer({ plays, homeTeamId, teamFilter }: Props) {
     const awayShots: Array<[number, number]> = [];
 
     for (const p of plays) {
-      if (!p.shootingPlay && !isFreeThrow(p)) continue;
+      if (!p.shootingPlay || isFreeThrow(p)) continue;
 
       const isHome = p.team?.id === homeTeamId;
       if (teamFilter === 'home' && !isHome) continue;
       if (teamFilter === 'away' && isHome) continue;
 
-      const ft = isFreeThrow(p);
-      const coord = ft
-        ? FT_COORD
-        : isValidESPNCoord(p.coordinate)
-          ? p.coordinate!
-          : AT_BASKET_COORD;
+      const coord = isValidESPNCoord(p.coordinate)
+        ? p.coordinate!
+        : AT_BASKET_COORD;
 
       const svgCoord = espnToSvg(coord.x, coord.y, isHome);
       if (isHome) homeShots.push(svgCoord);

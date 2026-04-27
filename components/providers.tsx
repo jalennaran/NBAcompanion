@@ -3,6 +3,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { useState } from 'react';
+import ModalProvider from './modals/ModalProvider';
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
@@ -10,10 +11,10 @@ export function Providers({ children }: { children: React.ReactNode }) {
       new QueryClient({
         defaultOptions: {
           queries: {
-            staleTime: 5 * 1000, // Data is fresh for 5 seconds
-            refetchInterval: 5 * 1000, // Auto-refetch every 5 seconds
-            refetchIntervalInBackground: true, // Continue refetching when tab is inactive
-            refetchOnWindowFocus: true, // Refetch when user returns to tab
+            staleTime: 5 * 1000,
+            refetchInterval: 5 * 1000,
+            refetchIntervalInBackground: true,
+            refetchOnWindowFocus: true,
           },
         },
       })
@@ -21,7 +22,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
   return (
     <QueryClientProvider client={queryClient}>
-      {children}
+      <ModalProvider>
+        {children}
+      </ModalProvider>
       <ReactQueryDevtools initialIsOpen={false} />
     </QueryClientProvider>
   );
