@@ -9,6 +9,8 @@ import type { Competitor, Play, TeamBoxScore, GamePrediction } from '@/lib/types
 import CourtStrip from '@/components/game/CourtStrip';
 import type { OnCourtPlayer } from '@/components/game/CourtStrip';
 import { ThreeCourtScene } from '@/components/three-court/ThreeCourtScene';
+import PlayerLink from '@/components/modals/PlayerLink';
+import TeamLink from '@/components/modals/TeamLink';
 
 function parseDisplayClock(displayClock: string): number {
   const parts = (displayClock ?? '').split(':');
@@ -247,6 +249,7 @@ export default function GamePage() {
     if (!bs) return;
     for (const a of bs.statistics?.[0]?.athletes ?? []) {
       athleteById[a.athlete.id] = {
+        athleteId: a.athlete.id,
         name: a.athlete.shortName || a.athlete.displayName,
         jersey: a.athlete.jersey,
         position: a.athlete.position?.abbreviation,
@@ -302,6 +305,7 @@ export default function GamePage() {
     return athletes
       .filter((a: any) => a.starter)
       .map((a: any) => ({
+        athleteId: a.athlete.id,
         name: a.athlete.shortName || a.athlete.displayName,
         jersey: a.athlete.jersey,
         position: a.athlete.position?.abbreviation,
@@ -492,6 +496,7 @@ export default function GamePage() {
                 awayAbbrev={awayCompetitor?.team?.abbreviation ?? ''}
                 homeColor={homeCompetitor?.team?.color}
                 awayColor={awayCompetitor?.team?.color}
+                athleteIndex={athleteById}
               />
             ) : (
               <GamePredictionsPanel
@@ -649,9 +654,11 @@ function TeamScoreRow({
             )}
           </div>
           <div>
-            <span className={`font-bold ${isWinner ? 'text-white' : 'text-slate-300'}`}>
-              {competitor.team.displayName}
-            </span>
+            <TeamLink teamId={competitor.team.id}>
+              <span className={`font-bold ${isWinner ? 'text-white' : 'text-slate-300'}`}>
+                {competitor.team.displayName}
+              </span>
+            </TeamLink>
             {competitor.records?.[0] && (
               <span className="text-slate-500 text-xs ml-2">
                 ({competitor.records[0].summary}{competitor.records?.[1] ? `, ${competitor.records[1].summary} ${competitor.homeAway === 'home' ? 'Home' : 'Away'}` : ''})
@@ -683,12 +690,14 @@ function PlayByPlayFeed({
   awayAbbrev,
   homeColor,
   awayColor,
+  athleteIndex,
 }: {
   plays: Play[];
   homeAbbrev: string;
   awayAbbrev: string;
   homeColor?: string;
   awayColor?: string;
+  athleteIndex?: Record<string, OnCourtPlayer>;
 }) {
   return (
     <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-xl rounded-3xl border border-slate-700/50 flex flex-col h-[700px]">
@@ -712,11 +721,47 @@ function PlayByPlayFeed({
               awayAbbrev={awayAbbrev}
               homeColor={homeColor}
               awayColor={awayColor}
+              athleteIndex={athleteIndex}
             />
           ))
         )}
       </div>
     </div>
+  );
+}
+
+function renderPlayText(text: string, athleteIndex?: Record<string, OnCourtPlayer>) {
+  if (!athleteIndex) return <>{text}</>;
+
+  // Build sorted name→id map (longest names first to avoid partial matches)
+  const entries = Object.entries(athleteIndex)
+    .filter(([, p]) => p.athleteId && p.name)
+    .sort((a, b) => b[1].name.length - a[1].name.length);
+
+  if (entries.length === 0) return <>{text}</>;
+
+  const pattern = entries.map(([, p]) => p.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
+  const regex = new RegExp(`(${pattern})`, 'g');
+  const parts = text.split(regex);
+
+  // Build reverse lookup: name → athleteId
+  const nameToId: Record<string, string> = {};
+  for (const [id, p] of entries) {
+    nameToId[p.name] = p.athleteId ?? id;
+  }
+
+  return (
+    <>
+      {parts.map((part, i) =>
+        nameToId[part] ? (
+          <PlayerLink key={i} athleteId={nameToId[part]} className="text-inherit font-semibold">
+            {part}
+          </PlayerLink>
+        ) : (
+          <span key={i}>{part}</span>
+        )
+      )}
+    </>
   );
 }
 
@@ -726,12 +771,14 @@ function PlayItem({
   awayAbbrev,
   homeColor,
   awayColor,
+  athleteIndex,
 }: {
   play: Play;
   homeAbbrev: string;
   awayAbbrev: string;
   homeColor?: string;
   awayColor?: string;
+  athleteIndex?: Record<string, OnCourtPlayer>;
 }) {
   const periodLabel = play.period.number <= 4
     ? `Q${play.period.number}`
@@ -756,7 +803,7 @@ function PlayItem({
         {/* Play text */}
         <div className="flex-1 min-w-0">
           <p className={`leading-relaxed ${isScoringPlay ? 'text-emerald-200' : 'text-slate-300'}`}>
-            {play.text}
+            {renderPlayText(play.text, athleteIndex)}
           </p>
         </div>
 
@@ -830,7 +877,9 @@ function GamePredictionsPanel({
                       {competitor?.team?.logo && (
                         <Image src={competitor.team.logo} alt={competitor.team.abbreviation} width={24} height={24} className="object-contain flex-shrink-0" />
                       )}
-                      <span className="text-slate-300 font-medium text-sm flex-1">{competitor?.team?.abbreviation}</span>
+                      <TeamLink teamId={competitor?.team?.id ?? ''} className="text-slate-300 font-medium text-sm flex-1">
+                        {competitor?.team?.abbreviation}
+                      </TeamLink>
                       <span className="text-slate-400 text-sm font-mono">{predScore.toFixed(1)}</span>
                       {isFinal && actual !== null && (
                         <>
@@ -1121,9 +1170,9 @@ function PlayerRow({
           {athlete.jersey && (
             <span className="text-slate-600 text-[10px] w-5 text-right">#{athlete.jersey}</span>
           )}
-          <span className="text-slate-200 whitespace-nowrap font-medium">
+          <PlayerLink athleteId={athlete.id} className="text-slate-200 whitespace-nowrap font-medium">
             {athlete.shortName || athlete.displayName}
-          </span>
+          </PlayerLink>
         </div>
       </td>
       {isDNP ? (
@@ -1249,9 +1298,9 @@ function PregameRosterTable({
                       {a.jersey && (
                         <span className="text-slate-600 text-[10px] w-5 text-right">#{a.jersey}</span>
                       )}
-                      <span className="text-slate-200 whitespace-nowrap font-medium">
+                      <PlayerLink athleteId={String(a.id)} className="text-slate-200 whitespace-nowrap font-medium">
                         {a.shortName || a.displayName}
-                      </span>
+                      </PlayerLink>
                       {pos && (
                         <span className="text-slate-600 text-[10px]">{pos}</span>
                       )}

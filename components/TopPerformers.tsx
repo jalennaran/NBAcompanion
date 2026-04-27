@@ -4,8 +4,10 @@ import { useQuery } from '@tanstack/react-query';
 import { fetchGameSummary } from '@/lib/api';
 import Image from 'next/image';
 import type { TeamBoxScore } from '@/lib/types';
+import PlayerLink from './modals/PlayerLink';
 
 interface TopPerformer {
+  athleteId: string;
   name: string;
   headshot: string;
   teamLogo: string;
@@ -56,6 +58,7 @@ function getTopPerformer(teamBox: TeamBoxScore): TopPerformer | null {
   }
 
   return {
+    athleteId: topPlayer.athlete.id,
     name: topPlayer.athlete.shortName || topPlayer.athlete.displayName,
     headshot: (topPlayer.athlete.headshot as any)?.href ?? topPlayer.athlete.headshot ?? '',
     teamLogo: teamBox.team.logo,
@@ -98,9 +101,9 @@ function PerformerRow({ performer }: { performer: TopPerformer }) {
       </div>
 
       {/* Name */}
-      <div className="text-slate-200 text-sm font-medium truncate min-w-0 flex-shrink">
+      <PlayerLink athleteId={performer.athleteId} className="text-slate-200 text-sm font-medium truncate min-w-0 flex-shrink">
         {performer.name}
-      </div>
+      </PlayerLink>
 
       {/* Stats */}
       <div className="flex items-center gap-3 ml-auto flex-shrink-0 text-xs">

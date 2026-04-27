@@ -9,6 +9,7 @@ import { useSearchParams } from 'next/navigation';
 import TopPerformers from '@/components/TopPerformers';
 import PreGameLeaders from '@/components/PreGameLeaders';
 import type { GamePrediction } from '@/lib/types';
+import TeamLink from '@/components/modals/TeamLink';
 
 const ESPN_TO_PRED: Record<string, string> = {
   GS: 'GSW', NO: 'NOP', NY: 'NYK', SA: 'SAS', UTAH: 'UTA', WSH: 'WAS',
@@ -361,9 +362,9 @@ export default function Home() {
                     {/* Away Team */}
                     {awayTeam && (
                       <div className="flex items-center justify-between p-4 rounded-2xl bg-slate-800/40 backdrop-blur-sm border border-slate-700/30 hover:border-slate-600/50 transition-all">
-                        <div className="flex items-center gap-4 flex-1">
+                        <TeamLink teamId={awayTeam.team.id} className="flex items-center gap-4 flex-1">
                           <div className="relative w-14 h-14 flex-shrink-0">
-                            <div 
+                            <div
                               className="absolute inset-0 rounded-xl opacity-20 blur-lg"
                               style={{ backgroundColor: `#${awayTeam.team.color}` }}
                             />
@@ -390,8 +391,8 @@ export default function Home() {
                               </div>
                             )}
                           </div>
-                        </div>
-                        <div 
+                        </TeamLink>
+                        <div
                           className="text-4xl font-black bg-gradient-to-br from-white to-slate-300 bg-clip-text text-transparent"
                         >
                           {awayTeam.score || '0'}
@@ -402,9 +403,9 @@ export default function Home() {
                     {/* Home Team */}
                     {homeTeam && (
                       <div className="flex items-center justify-between p-4 rounded-2xl bg-slate-800/40 backdrop-blur-sm border border-slate-700/30 hover:border-slate-600/50 transition-all">
-                        <div className="flex items-center gap-4 flex-1">
+                        <TeamLink teamId={homeTeam.team.id} className="flex items-center gap-4 flex-1">
                           <div className="relative w-14 h-14 flex-shrink-0">
-                            <div 
+                            <div
                               className="absolute inset-0 rounded-xl opacity-20 blur-lg"
                               style={{ backgroundColor: `#${homeTeam.team.color}` }}
                             />
@@ -431,8 +432,8 @@ export default function Home() {
                               </div>
                             )}
                           </div>
-                        </div>
-                        <div 
+                        </TeamLink>
+                        <div
                           className="text-4xl font-black bg-gradient-to-br from-white to-slate-300 bg-clip-text text-transparent"
                         >
                           {homeTeam.score || '0'}

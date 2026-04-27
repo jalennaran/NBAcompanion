@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import Image from 'next/image';
 import { fetchPlayerStats } from '@/lib/api';
 import type { Competitor } from '@/lib/types';
+import PlayerLink from './modals/PlayerLink';
 
 interface SeedPlayer {
   athleteId: string;
@@ -104,9 +105,9 @@ function PlayerRow({ seed }: { seed: SeedPlayer }) {
       </div>
 
       {/* Name */}
-      <div className="text-slate-200 text-sm font-medium truncate min-w-0 flex-shrink">
+      <PlayerLink athleteId={seed.athleteId} className="text-slate-200 text-sm font-medium truncate min-w-0 flex-shrink">
         {seed.name}
-      </div>
+      </PlayerLink>
 
       {/* Stats */}
       {isLoading ? (

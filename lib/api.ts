@@ -105,3 +105,66 @@ export async function fetchTeamRoster(teamId: string): Promise<any> {
 
   return response.json();
 }
+
+// Fetch player bio (height, weight, position, jersey, draft, DOB, headshot)
+
+export async function fetchPlayerBio(athleteId: string): Promise<any> {
+  const response = await fetch(
+    `https://site.web.api.espn.com/apis/common/v3/sports/basketball/nba/athletes/${athleteId}`,
+    { cache: 'no-store' }
+  );
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch bio for athlete ${athleteId}`);
+  }
+
+  return response.json();
+}
+
+// Fetch player game log (full season, per-game stats)
+
+export async function fetchPlayerGameLog(athleteId: string): Promise<any> {
+  const response = await fetch(
+    `https://site.web.api.espn.com/apis/common/v3/sports/basketball/nba/athletes/${athleteId}/gamelog`,
+    { cache: 'no-store' }
+  );
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch game log for athlete ${athleteId}`);
+  }
+
+  return response.json();
+}
+
+// Fetch team profile (record, conference, standings)
+
+export async function fetchTeamProfile(teamId: string): Promise<any> {
+  const response = await fetch(
+    `https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams/${teamId}`,
+    { cache: 'no-store' }
+  );
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch profile for team ${teamId}`);
+  }
+
+  return response.json();
+}
+
+// Fetch full-season team schedule (regular season + playoffs combined)
+
+export async function fetchTeamSchedule(teamId: string): Promise<any> {
+  const base = `https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams/${teamId}/schedule`;
+  const [reg, post] = await Promise.all([
+    fetch(`${base}?seasontype=2`, { cache: 'no-store' }),
+    fetch(`${base}?seasontype=3`, { cache: 'no-store' }),
+  ]);
+
+  const regData  = reg.ok  ? await reg.json()  : { events: [] };
+  const postData = post.ok ? await post.json() : { events: [] };
+
+  return {
+    ...regData,
+    events: [...(regData.events ?? []), ...(postData.events ?? [])],
+  };
+}

@@ -4,8 +4,10 @@ import { useEffect, useId, useMemo, useState } from 'react';
 import Image from 'next/image';
 import { ShotHeatmapLayer, type HeatmapTeamFilter } from './ShotHeatmapLayer';
 import type { Play } from '@/lib/types';
+import PlayerLink from '@/components/modals/PlayerLink';
 
 export type OnCourtPlayer = {
+  athleteId?: string;
   name: string;
   jersey?: string;
   position?: string;
@@ -343,9 +345,15 @@ function PlayerRow({ player, accentColor }: { player: OnCourtPlayer; accentColor
 
       {/* Name + info */}
       <div className="min-w-0 flex-1">
-        <div className="text-[11px] text-slate-200 font-medium truncate leading-tight">
-          {player.name}
-        </div>
+        {player.athleteId ? (
+          <PlayerLink athleteId={player.athleteId} className="text-[11px] text-slate-200 font-medium truncate leading-tight block">
+            {player.name}
+          </PlayerLink>
+        ) : (
+          <div className="text-[11px] text-slate-200 font-medium truncate leading-tight">
+            {player.name}
+          </div>
+        )}
         <div className="text-[9px] text-slate-500 leading-tight">
           {player.jersey && <span>#{player.jersey}</span>}
           {player.jersey && player.position && <span className="mx-0.5">·</span>}
