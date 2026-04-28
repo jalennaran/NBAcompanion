@@ -5,3 +5,5 @@ dist/
 .env*
 temp/
 .DS_Store
+tsconfig.tsbuildinfo
+CLAUDE.md
