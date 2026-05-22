@@ -8739,5 +8739,183 @@
         }
       }
     ]
+  },
+  {
+    "generated_at": "2026-05-22T19:55:03.322222+00:00",
+    "game_date": "2026-05-22",
+    "games": [
+      {
+        "game_date": "2026-05-22",
+        "commence_time": "2026-05-23T00:30Z",
+        "home_team": "SAS",
+        "away_team": "OKC",
+        "home_team_full": "San Antonio Spurs",
+        "away_team_full": "Oklahoma City Thunder",
+        "pred_home_score": 110.2,
+        "pred_away_score": 105.4,
+        "simulation": {
+          "margin": {
+            "mean": 4.73,
+            "p10": -11.51,
+            "p25": -3.8,
+            "p75": 13.52,
+            "p90": 21.11
+          },
+          "total": {
+            "mean": 215.66,
+            "p10": 193.19,
+            "p25": 203.77,
+            "p75": 227.34,
+            "p90": 238.19
+          }
+        },
+        "feature_importances": {
+          "margin_model": [
+            {
+              "feature": "home_season_win_pct",
+              "contribution": 1.5158,
+              "value": 0.7444
+            },
+            {
+              "feature": "ml_home",
+              "contribution": -0.9235,
+              "value": -125.0
+            },
+            {
+              "feature": "home_season_papg",
+              "contribution": -0.5262,
+              "value": 110.6333
+            },
+            {
+              "feature": "away_star_min_missing_roll20",
+              "contribution": 0.508,
+              "value": 19.1078
+            },
+            {
+              "feature": "home_assists_roll20",
+              "contribution": 0.3562,
+              "value": 28.15
+            },
+            {
+              "feature": "away_won_ewm5",
+              "contribution": 0.3318,
+              "value": 0.978
+            },
+            {
+              "feature": "home_season_ppg",
+              "contribution": 0.32,
+              "value": 119.2889
+            },
+            {
+              "feature": "delta_won_roll10",
+              "contribution": -0.3087,
+              "value": -0.2889
+            },
+            {
+              "feature": "away_points_allowed_roll10",
+              "contribution": 0.2495,
+              "value": 106.8
+            },
+            {
+              "feature": "home_won_roll20",
+              "contribution": 0.2088,
+              "value": 0.75
+            }
+          ],
+          "total_model": [
+            {
+              "feature": "total",
+              "contribution": 10.1617,
+              "value": 218.5
+            },
+            {
+              "feature": "avg_pace_roll10",
+              "contribution": 2.4393,
+              "value": 98.114
+            },
+            {
+              "feature": "home_season_papg",
+              "contribution": 1.1538,
+              "value": 110.6333
+            },
+            {
+              "feature": "avg_pace_roll5",
+              "contribution": 1.0286,
+              "value": 98.036
+            },
+            {
+              "feature": "away_efg_pct_roll10",
+              "contribution": -0.8292,
+              "value": 0.5775
+            },
+            {
+              "feature": "away_points_roll20",
+              "contribution": 0.8233,
+              "value": 120.75
+            },
+            {
+              "feature": "home_points_ewm10",
+              "contribution": 0.8185,
+              "value": 115.6935
+            },
+            {
+              "feature": "away_efg_pct_ewm10",
+              "contribution": -0.6721,
+              "value": 0.5834
+            },
+            {
+              "feature": "home_points_roll20",
+              "contribution": 0.6664,
+              "value": 119.95
+            },
+            {
+              "feature": "home_rebounds_defensive_roll20",
+              "contribution": -0.5975,
+              "value": 36.2
+            }
+          ]
+        },
+        "spread": {
+          "line": -1.5,
+          "predicted_margin": 4.77,
+          "home_cover_pct": 49.5,
+          "away_cover_pct": 50.5,
+          "push_pct": 0.0,
+          "bet_side": "away",
+          "bet_edge": 0.0054,
+          "bet_flag": false,
+          "ev": -3.87,
+          "kelly_units": 0.0
+        },
+        "moneyline": {
+          "ml_home": -125,
+          "ml_away": 105,
+          "predicted_home_win_pct": 64.7,
+          "predicted_away_win_pct": 35.3,
+          "home_win_pct": 66.5,
+          "away_win_pct": 33.5,
+          "implied_home_pct": 55.6,
+          "implied_away_pct": 48.8,
+          "bet_side": "home",
+          "bet_edge": 0.109,
+          "bet_flag": true,
+          "confidence": "strong",
+          "ev": 19.61,
+          "kelly_units": 0.0613
+        },
+        "over_under": {
+          "line": 218.5,
+          "predicted_total": 215.63,
+          "over_pct": 43.9,
+          "under_pct": 56.1,
+          "push_pct": 0.0,
+          "bet_side": "under",
+          "bet_edge": 0.0608,
+          "bet_flag": true,
+          "ev": 7.77,
+          "kelly_units": 0.0194
+        }
+      }
+    ]
   }
 ]
